@@ -36,7 +36,7 @@
     "static-site-generation",
     "ssr"
   ],
-  "author": "",
+  "author": "Timothy Meade (@NotABusinessGuy)",
   "license": "MIT",
   "peerDependencies": {
     "react": "^18.0.0",
