@@ -144,12 +144,19 @@ interface DeadSimpleSEOConfig {
 
 ## Rules for SEO Pages
 
-1. Must include `"use static";` directive at the top
-2. Limited React hook support for predictability:
+1. Page components may include `"use static";` directive at the top.
+
+When present, the following React hook restrictions apply:
    - ✅ useContext - works if provider is in parent component hierarchy
    - ❌ useState, useEffect, useReducer, etc. - not allowed
    - **Note**: While ReactDOMServer supports these hooks, 'use static' components are intentionally more restrictive to keep SEO pages simple and predictable
+
+2. Layout-based hooks (such as useLayoutEffect and useEffect) are not supported.
+
+2. SEO page components must be default exports
+
 3. Component names should be PascalCase
+
 4. Files starting with `_` or named `index` are ignored
 
 ## Development

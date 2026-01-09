@@ -6,41 +6,25 @@ import type { File } from '@babel/types';
 // Handle default export from babel/traverse
 const traverse = (babelTraverse as any).default || babelTraverse;
 
+const USE_STATIC_DIRECTIVE = /^["'`]use static['"`];?/gm;
+
 /**
  * Check if file contains "use static" directive
  */
 export function hasUseStaticDirective(content: string): boolean {
-  const lines = content.split('\n').slice(0, 10); // Check first 10 lines
-  
-  for (const line of lines) {
-    const trimmed = line.trim();
-    // Check for "use static" in various quote formats
-    if (
-      trimmed === '"use static";' ||
-      trimmed === "'use static';" ||
-      trimmed === '`use static`;' ||
-      trimmed === '"use static"' ||
-      trimmed === "'use static'" ||
-      trimmed === '`use static`'
-    ) {
-      return true;
-    }
-  }
-  
-  return false;
+  const lines = content.split('\n').slice(0, 10).join('\n'); // Check first 10 lines
+
+  return USE_STATIC_DIRECTIVE.test(lines);
 }
 
 /**
- * React hooks that are not allowed in 'use static' components
- * Note: useContext is allowed if the context provider is in the parent hierarchy
+ * React hooks that are NEVER allowed in any SEO pages
+ * These hooks have side effects that don't run during SSR
  */
-const DISALLOWED_HOOKS = [
-  'useState',
+const ALWAYS_DISALLOWED = [
   'useEffect',
   'useLayoutEffect',
-  'useReducer',
   'useCallback',
-  'useMemo',
   'useRef',
   'useImperativeHandle',
   'useDebugValue',
@@ -52,12 +36,25 @@ const DISALLOWED_HOOKS = [
 ];
 
 /**
- * Validate that 'use static' components don't use stateful hooks
- * Context (useContext) is allowed if providers are in parent components
+ * React hooks that are not allowed in 'use static' components
+ * Note: useContext is allowed but the context provider must be in the parent hierarchy
  */
-export function validateNoStatefulHooks(content: string, filePath: string): { valid: boolean; errors: string[] } {
+const DISALLOWED_IN_STATIC = [
+  ...ALWAYS_DISALLOWED,
+  'useState',
+  'useReducer',
+  'useMemo',
+];
+
+/**
+ * Validate that 'use static' components don't use stateful hooks
+ * Context (useContext) is allowed but the context provider must be in the parent hierarchy
+ */
+export function validateHooks(content: string, hasUseStatic: boolean): { valid: boolean; errors: string[] } {
   const errors: string[] = [];
-  
+
+  const disallowedHooks = new Set(hasUseStatic ? DISALLOWED_IN_STATIC : ALWAYS_DISALLOWED);
+
   try {
     const ast: File = parse(content, {
       sourceType: 'module',
@@ -67,9 +64,16 @@ export function validateNoStatefulHooks(content: string, filePath: string): { va
     traverse(ast, {
       CallExpression(path: any) {
         const callee = path.node.callee;
-        
-        // Check for disallowed hook calls
-        if (callee.type === 'Identifier' && DISALLOWED_HOOKS.includes(callee.name)) {
+
+        // Check for always disallowed hooks
+        if (callee.type === 'Identifier' && ALWAYS_DISALLOWED.includes(callee.name)) {
+          errors.push(
+            `Hook '${callee.name}' is never allowed in SEO pages. ` +
+            `Side-effect hooks don't execute during static rendering and should not be used.`
+          );
+        }
+        // Check for hooks disallowed in this component
+        else if (callee.type === 'Identifier' && disallowedHooks.has(callee.name)) {
           errors.push(
             `Hook '${callee.name}' is not allowed in 'use static' components. ` +
             `Static SEO pages should be simple, predictable components. ` +
@@ -94,15 +98,17 @@ export function validateNoStatefulHooks(content: string, filePath: string): { va
 export function validateSEOPage(content: string, filePath: string): { valid: boolean; errors: string[] } {
   const errors: string[] = [];
 
-  // Check for "use static" directive
-  if (!hasUseStaticDirective(content)) {
-    errors.push(
-      `Missing "use static" directive. Add "use static"; at the top of the file to mark it as an SEO page.`
-    );
-  }
+  // // Check for "use static" directive
+  // if (!hasUseStaticDirective(content)) {
+  //   errors.push(
+  //     `Missing "use static" directive. Add "use static"; at the top of the file to mark it as an SEO page.`
+  //   );
+  // }
+
+  const hasUseStatic = hasUseStaticDirective(content);
 
   // Validate no disallowed hooks
-  const hookValidation = validateNoStatefulHooks(content, filePath);
+  const hookValidation = validateHooks(content, hasUseStatic);
   if (!hookValidation.valid) {
     errors.push(...hookValidation.errors);
   }
