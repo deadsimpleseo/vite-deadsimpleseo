@@ -8,7 +8,9 @@ A Vite plugin to generate static SEO pages from React components using ReactDOMS
 ### 1. Component Discovery
 - Scan a specific folder (e.g., `src/seo-pages/`) for React components
 - Components must start with `"use static";` directive (any string format)
-- Validate components don't use stateful React (useState, useEffect, useContext, etc.)
+- Components with 'use static' cannot use stateful hooks (useState, useEffect, etc.)
+- useContext is allowed if context providers exist in parent component hierarchy
+- This restriction is more conservative than ReactDOMServer for predictability
 - Extract component metadata (name, route, SEO data)
 
 ### 2. Static Page Generation

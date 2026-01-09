@@ -31,14 +31,14 @@ export function hasUseStaticDirective(content: string): boolean {
 }
 
 /**
- * Stateful React hooks that are not allowed in SEO pages
+ * React hooks that are not allowed in 'use static' components
+ * Note: useContext is allowed if the context provider is in the parent hierarchy
  */
-const STATEFUL_HOOKS = [
+const DISALLOWED_HOOKS = [
   'useState',
   'useEffect',
   'useLayoutEffect',
   'useReducer',
-  'useContext',
   'useCallback',
   'useMemo',
   'useRef',
@@ -52,7 +52,8 @@ const STATEFUL_HOOKS = [
 ];
 
 /**
- * Validate that component doesn't use stateful React hooks
+ * Validate that 'use static' components don't use stateful hooks
+ * Context (useContext) is allowed if providers are in parent components
  */
 export function validateNoStatefulHooks(content: string, filePath: string): { valid: boolean; errors: string[] } {
   const errors: string[] = [];
@@ -67,11 +68,12 @@ export function validateNoStatefulHooks(content: string, filePath: string): { va
       CallExpression(path: any) {
         const callee = path.node.callee;
         
-        // Check for direct hook calls
-        if (callee.type === 'Identifier' && STATEFUL_HOOKS.includes(callee.name)) {
+        // Check for disallowed hook calls
+        if (callee.type === 'Identifier' && DISALLOWED_HOOKS.includes(callee.name)) {
           errors.push(
-            `Stateful hook '${callee.name}' is not allowed in SEO pages. ` +
-            `SEO pages should be purely static components.`
+            `Hook '${callee.name}' is not allowed in 'use static' components. ` +
+            `Static SEO pages should be simple, predictable components. ` +
+            `Only useContext is allowed (if context providers are in parent hierarchy).`
           );
         }
       },
@@ -99,7 +101,7 @@ export function validateSEOPage(content: string, filePath: string): { valid: boo
     );
   }
 
-  // Validate no stateful hooks
+  // Validate no disallowed hooks
   const hookValidation = validateNoStatefulHooks(content, filePath);
   if (!hookValidation.valid) {
     errors.push(...hookValidation.errors);
