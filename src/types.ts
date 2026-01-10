@@ -45,6 +45,7 @@ export interface SEOPageInfo {
   componentPath: string;
   route: string;
   meta?: SEOPageMeta;
+  isMarkdown?: boolean;
 }
 
 export interface SEOPageContext {

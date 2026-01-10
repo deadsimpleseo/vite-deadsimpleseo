@@ -1,5 +1,5 @@
 
-Implement vite-deadsimpleseo plugin
+## Implement vite-deadsimpleseo plugin
 
     - Core plugin with Vite hooks (configResolved, buildStart, closeBundle, configureServer)
     - Component scanner to discover SEO pages in configured directory
@@ -11,7 +11,7 @@ Implement vite-deadsimpleseo plugin
     - Working example project with test SEO pages
     - Successfully generates static HTML files at /about-us/ and /contact/
 
-Enforce 'use static' hook restrictions
+## Enforce 'use static' hook restrictions
 
 The 'use static' directive is intentionally more restrictive than ReactDOMServer:
 - Only useContext is allowed (if providers are in parent hierarchy)
@@ -24,5 +24,7 @@ Changes:
 - Fixed Features.tsx example to be hook-free
 - Removed warning system (now errors for disallowed hooks)
 
-Split hook validation into separate categories (for 'use static' and non-'use static' components).
+## Split hook validation into separate categories (for 'use static' and non-'use static' components).
+
+## Add markdown support
 

@@ -14,9 +14,9 @@ export function componentNameToRoute(name: string): string {
 }
 
 /**
- * Scan directory for React component files
+ * Scan directory for React component files and optionally markdown files
  */
-export async function scanSEOPages(pagesDir: string): Promise<SEOPageInfo[]> {
+export async function scanSEOPages(pagesDir: string, enableMarkdown: boolean = false): Promise<SEOPageInfo[]> {
   const absolutePath = path.resolve(process.cwd(), pagesDir);
   
   if (!fs.existsSync(absolutePath)) {
@@ -35,6 +35,11 @@ export async function scanSEOPages(pagesDir: string): Promise<SEOPageInfo[]> {
     const ext = path.extname(file.name);
     const supportedExts = ['.tsx', '.jsx', '.ts', '.js'];
     
+    // Add markdown extensions if enabled
+    if (enableMarkdown) {
+      supportedExts.push('.md', '.markdown');
+    }
+    
     if (!supportedExts.includes(ext)) {
       continue;
     }
@@ -48,11 +53,13 @@ export async function scanSEOPages(pagesDir: string): Promise<SEOPageInfo[]> {
     }
 
     const route = componentNameToRoute(componentName);
+    const isMarkdown = ext === '.md' || ext === '.markdown';
 
     pages.push({
       name: componentName,
       componentPath,
       route: `/${route}`,
+      isMarkdown,
     });
   }
 

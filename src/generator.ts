@@ -1,6 +1,7 @@
 import path from 'path';
 import fs from 'fs';
 import type { SEOPageInfo, SEOPageMeta } from './types.js';
+import { parseMarkdown } from './markdown.js';
 
 /**
  * Generate static HTML for an SEO page
@@ -14,15 +15,44 @@ export async function generateStaticPage(
   const routePath = path.join(outDir, pageInfo.route);
   fs.mkdirSync(routePath, { recursive: true });
 
-  // We'll implement the actual rendering in the next iteration
-  // For now, create a placeholder that will be replaced with ReactDOMServer rendering
   const outputPath = path.join(routePath, 'index.html');
+  let html = indexHtmlTemplate;
   
-  // Placeholder - will be replaced with actual React rendering
-  const html = indexHtmlTemplate.replace(
-    '</head>',
-    `<title>${pageInfo.meta?.title || pageInfo.name}</title></head>`
-  );
+  // Handle markdown files
+  if (pageInfo.isMarkdown) {
+    const markdownContent = fs.readFileSync(pageInfo.componentPath, 'utf-8');
+    const parsed = parseMarkdown(markdownContent);
+    
+    // Update pageInfo with frontmatter metadata
+    if (!pageInfo.meta) {
+      pageInfo.meta = parsed.frontmatter;
+    }
+    
+    // Inject title and rendered markdown content
+    html = html.replace(
+      '</head>',
+      `<title>${parsed.frontmatter.title || pageInfo.name}</title>
+    ${parsed.frontmatter.description ? `<meta name="description" content="${parsed.frontmatter.description}">` : ''}
+    ${parsed.frontmatter.ogImage ? `<meta property="og:image" content="${parsed.frontmatter.ogImage}">` : ''}
+    </head>`
+    );
+    
+    // Inject markdown HTML into body
+    html = html.replace(
+      '<div id="root"></div>',
+      `<div id="root">
+      <div class="markdown-content" style="max-width: 800px; margin: 0 auto; padding: 2rem;">
+        ${parsed.html}
+      </div>
+    </div>`
+    );
+  } else {
+    // React component - placeholder for now
+    html = html.replace(
+      '</head>',
+      `<title>${pageInfo.meta?.title || pageInfo.name}</title></head>`
+    );
+  }
 
   fs.writeFileSync(outputPath, html, 'utf-8');
 }

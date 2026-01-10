@@ -35,17 +35,22 @@ export default function deadSimpleSEO(options: DeadSimpleSEOConfig = {}): Plugin
     async buildStart() {
       // Scan for SEO pages
       console.log(`[${PLUGIN_NAME}] Scanning for SEO pages in ${config.pagesDir}...`);
-      seoPages = await scanSEOPages(config.pagesDir);
+      seoPages = await scanSEOPages(config.pagesDir, config.markdown);
 
       if (seoPages.length === 0) {
         console.warn(`[${PLUGIN_NAME}] No SEO pages found in ${config.pagesDir}`);
         return;
       }
 
-      // Validate each page
+      // Validate each page (skip validation for markdown files)
       const errors: Array<{ page: string; errors: string[] }> = [];
       
       for (const page of seoPages) {
+        // Skip validation for markdown files
+        if (page.isMarkdown) {
+          continue;
+        }
+        
         const content = readFileContent(page.componentPath);
         const validation = validateSEOPage(content, page.componentPath);
         
