@@ -1,6 +1,6 @@
 import path from 'path';
 import fs from 'fs';
-import type { SEOPageInfo } from './types.js';
+import type { SEOPageInfo } from '../shared/types.js';
 
 /**
  * Convert CamelCase component name to snake-case route

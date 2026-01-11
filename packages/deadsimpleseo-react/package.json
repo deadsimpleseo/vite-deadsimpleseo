@@ -1,0 +1,55 @@
+{
+  "name": "deadsimpleseo-react",
+  "version": "0.1.0",
+  "description": "React utilities to generate static SEO pages from components",
+  "main": "./dist/cjs/index.js",
+  "module": "./dist/esm/index.js",
+  "types": "./dist/esm/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/esm/index.d.ts",
+      "import": "./dist/esm/index.js",
+      "require": "./dist/cjs/index.js",
+      "default": "./dist/esm/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "FORMAT=es vite build && FORMAT=cjs vite build && tsc --emitDeclarationOnly --outDir dist/esm",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "vite",
+    "vite-plugin",
+    "react",
+    "seo",
+    "static-site-generation",
+    "ssr"
+  ],
+  "author": "Timothy Meade (@NotABusinessGuy)",
+  "license": "MIT",
+  "peerDependencies": {
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": false
+    },
+    "react-dom": {
+      "optional": false
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@vitejs/plugin-react": "^4.2.0",
+    "typescript": "^5.3.3",
+    "vite": "^5.4.0"
+  },
+  "dependencies": {
+    "marked": "^11.1.1"
+  },
+  "build": "tsc -b tsconfig.json"
+}

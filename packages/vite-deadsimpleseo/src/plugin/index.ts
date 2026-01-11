@@ -1,9 +1,10 @@
 import type { Plugin, ResolvedConfig } from 'vite';
 import path from 'path';
-import type { DeadSimpleSEOConfig, SEOPageInfo } from './types.js';
+import type { DeadSimpleSEOConfig } from './config.js';
+import type { SEOPageInfo } from '../shared/types.js';
 import { scanSEOPages, readFileContent } from './scanner.js';
 import { validateSEOPage } from './validator.js';
-import { generateStaticPage } from './generator.js';
+import { generateStaticPageHtml, renderSEOPageContentToStringInVm } from './generator.js';
 
 const PLUGIN_NAME = 'vite-deadsimpleseo';
 
@@ -13,7 +14,7 @@ const PLUGIN_NAME = 'vite-deadsimpleseo';
 const VIRTUAL_MODULE_ID = 'virtual:seo-pages';
 const RESOLVED_VIRTUAL_MODULE_ID = '\0' + VIRTUAL_MODULE_ID;
 
-export default function deadSimpleSEO(options: DeadSimpleSEOConfig = {}): Plugin {
+export function deadSimpleSEO(options: DeadSimpleSEOConfig = {}): Plugin {
   const config: Required<Omit<DeadSimpleSEOConfig, 'defaults' | 'routeTransform'>> & Pick<DeadSimpleSEOConfig, 'defaults' | 'routeTransform'> = {
     pagesDir: options.pagesDir || 'src/seo-pages',
     outDir: options.outDir || 'dist',
@@ -24,6 +25,7 @@ export default function deadSimpleSEO(options: DeadSimpleSEOConfig = {}): Plugin
 
   let viteConfig: ResolvedConfig;
   let seoPages: SEOPageInfo[] = [];
+  let mainEntryFile: string | null = null;
 
   return {
     name: PLUGIN_NAME,
@@ -103,30 +105,81 @@ export const seoPagesList = ${JSON.stringify(pagesList)};
       }
     },
 
-    async closeBundle() {
+    generateBundle(options, bundle) {
+      // Find the main entry chunk to get its filename
+      for (const [fileName, chunk] of Object.entries(bundle)) {
+        if (chunk.type === 'chunk' && chunk.isEntry) {
+          mainEntryFile = fileName;
+          break;
+        }
+      }
+    },
+
+    async writeBundle(options, bundle) {
       // Only generate static pages in build mode
       if (viteConfig.command !== 'build' || seoPages.length === 0) {
         return;
       }
 
-      console.log(`\n[${PLUGIN_NAME}] Generating static SEO pages...`);
+      console.log(`\n[${PLUGIN_NAME}] Generating static SEO pages in bundle...`);
 
-      // Read the generated index.html from the output directory
-      const indexHtmlPath = path.join(config.outDir, 'index.html');
-      
-      let indexHtmlContent: string;
-      try {
-        indexHtmlContent = await import('fs').then(fs => 
-          fs.promises.readFile(indexHtmlPath, 'utf-8')
-        );
-      } catch (error) {
-        console.warn(`[${PLUGIN_NAME}] Could not read index.html from ${indexHtmlPath}, skipping static page generation`);
+      // Find the index.html in the bundle
+      const indexHtmlAsset = Object.entries(bundle).find(
+        ([fileName, asset]) => asset.type === 'asset' && fileName === 'index.html'
+      );
+
+      if (!indexHtmlAsset) {
+        console.warn(`[${PLUGIN_NAME}] index.html not found in bundle, skipping static page generation`);
         return;
       }
 
-      // Generate static pages
+      const [, indexAsset] = indexHtmlAsset;
+      if (indexAsset.type !== 'asset') {
+        console.warn(`[${PLUGIN_NAME}] index.html is not an asset, skipping static page generation`);
+        return;
+      }
+
+      const indexHtmlContent = typeof indexAsset.source === 'string'
+        ? indexAsset.source
+        : new TextDecoder().decode(indexAsset.source);
+
+      const appComponentPath = path.resolve(viteConfig.root, 'src', 'App.tsx');
+
+      // Generate static pages and write them to disk
       for (const page of seoPages) {
-        await generateStaticPage(page, config.outDir, indexHtmlContent);
+
+        const componentPath = path.resolve(viteConfig.root, page.componentPath);
+        console.log(`  - Generating page: ${page.name}
+              original component path: ${page.componentPath}
+              resolved component path: ${componentPath}
+        `);
+
+        const pageInfo = {
+          ...page,
+          componentPath,
+        };
+
+        if (pageInfo.isMarkdown || pageInfo.componentPath?.trim() === '' || pageInfo.componentPath.endsWith('.md')) {
+          console.log(`    (Skipping React rendering for markdown page or invalid component path)`);
+          continue;
+        }
+
+        // const staticHtml = await generateStaticPageHtml(viteConfig, page, indexHtmlContent, mainEntryFile);
+        const staticHtml = await renderSEOPageContentToStringInVm(
+          appComponentPath,
+          pageInfo,
+        );
+        const routePath = path.join(config.outDir, page.route);
+        
+        // Create directory and write file
+        const fs = await import('fs');
+        await fs.promises.mkdir(routePath, { recursive: true });
+        await fs.promises.writeFile(
+          path.join(routePath, 'index.html'),
+          staticHtml,
+          'utf-8'
+        );
+        
         console.log(`  ✓ Generated ${page.route}/index.html`);
       }
 
@@ -160,4 +213,8 @@ export const seoPagesList = ${JSON.stringify(pagesList)};
 }
 
 // Export types
-export type { DeadSimpleSEOConfig, SEOPageMeta, SEOPageInfo, SEOPageContext, SEOPageListItem } from './types.js';
+// export type { DeadSimpleSEOConfig, SEOPageMeta, SEOPageInfo, SEOPageContext, SEOPageListItem } from './types';
+
+export type { DeadSimpleSEOConfig } from './config';
+
+export default deadSimpleSEO;
