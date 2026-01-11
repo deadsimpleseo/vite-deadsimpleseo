@@ -48,35 +48,36 @@ function MainPage() {
   );
 }
 
-function Page() {
-  const seoPage = useSEOPage();
-  const SEOPageComponent = useSEOPageComponent();
+// function Page() {
+//   const seoPage = useSEOPage();
+//   const SEOPageComponent = useSEOPageComponent();
 
-  if (!seoPage || !SEOPageComponent) {
-    throw new Error('No SEO page or component found');
-    // return (
-    //   <div>no SEO page or component</div>
-    // );
-  }
+//   if (!seoPage || !SEOPageComponent) {
+//     throw new Error('No SEO page or component found');
+//     // return (
+//     //   <div>no SEO page or component</div>
+//     // );
+//   }
 
-  return (
-    <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-      <h1>{seoPage.pageTitle}</h1>
-      <h3>Component path: {seoPage.meta?.componentPath}</h3>
+//   return (
+//     <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+//       <h1>{seoPage.pageTitle}</h1>
+//       <h3>Component path: {seoPage.meta?.componentPath}</h3>
 
-      <SEOPageComponent />
-    </div>
-  )
-}
+//       <SEOPageComponent />
+//     </div>
+//   )
+// }
 
 function App() {
   const seoPage = useSEOPage();
+  const SEOPage = useSEOPageComponent();
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <Header />
       <main style={{ flex: 1, padding: '3rem 2rem' }}>
-        { seoPage ? <Page /> : <MainPage /> }
+        { seoPage ? <SEOPage /> : <MainPage /> }
       </main>
       <Footer />
     </div>

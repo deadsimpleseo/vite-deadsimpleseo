@@ -6,7 +6,6 @@ import Footer from '../components/Footer';
 export default function Features() {
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-      <Header />
       <main style={{ flex: 1, padding: '3rem 2rem' }}>
         <div style={{ maxWidth: '800px', margin: '0 auto' }}>
           <h1>Features</h1>
@@ -52,7 +51,6 @@ export default function Features() {
           </div>
         </div>
       </main>
-      <Footer />
     </div>
   );
 }

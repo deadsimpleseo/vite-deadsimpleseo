@@ -266,6 +266,10 @@ export async function renderSEOPageContentToStringInVm(
 
   const mainTsx = `
     import React from 'react';
+
+    // Export it for components that don't use import React directly
+    globalThis.React = React;
+
     import ReactDOMServer from 'react-dom/server';
     import { SEOPageProvider } from 'deadsimpleseo-react';
 
@@ -418,9 +422,16 @@ export async function renderSEOPageContentToStringInVm(
         if (args.path === 'vite-deadsimpleseo') {
           throw new Error('vite-deadsimpleseo module not supported in VM');
         }
+        
+        // Resolve deadsimpleseo-react to its source entry point, not built dist
+        // This way esbuild bundles the source and it gets evaluated in the VM with VM's React
         if (args.path === 'deadsimpleseo-react') {
-          return { path: 'deadsimpleseo-react', namespace: 'external' };
+          const dsrPath = path.resolve(process.cwd(), '../../packages/deadsimpleseo-react/src/index.ts');
+          return { path: dsrPath };
         }
+        
+        // deadsimpleseo-react should be bundled by esbuild, not treated as external
+        // Only React and ReactDOMServer are external (provided by VM's require)
         // if (args.path === 'deadsimpleseo-react') {
         //   const distPath = path.resolve(process.cwd(), '../../packages/deadsimpleseo-react/dist/index.js');
         //   return { path: distPath };
@@ -499,20 +510,7 @@ module.exports = (function() {
             loader: 'js',
           };
         }
-        if (args.path === 'deadsimpleseo-react') {
-          // Return code that will be executed inside the VM
-          // We use a unique name to avoid circular reference issues
-          return {
-            contents: `
-// Use a self-executing function to avoid circular reference issues
-module.exports = (function() {
-  var _require = typeof require !== 'undefined' ? require : function() { throw new Error('require not available'); };
-  return _require('deadsimpleseo-react');
-})();
-`,
-            loader: 'js',
-          };
-        }
+        // deadsimpleseo-react is bundled by esbuild, not loaded externally
 
         // const distDir = path.dirname(path.resolve(process.cwd(), '../../dist/index.js'));
         // if (args.path.startsWith(distDir)) {
@@ -603,9 +601,9 @@ module.exports = (function() {
       throw new Error('vite-deadsimpleseo module not supported in VM');
     }
     
-    // Use nodeRequire for all modules - this ensures everything uses the same
-    // React instance from node_modules, including when deadsimpleseo-react loads
-    if (moduleName === 'react' || moduleName === 'react-dom/server' || moduleName === 'deadsimpleseo-react') {
+    // Only React and ReactDOMServer are external - provided by nodeRequire
+    // deadsimpleseo-react is bundled into the code by esbuild
+    if (moduleName === 'react' || moduleName === 'react-dom/server') {
       const loaded = nodeRequire(moduleName);
       if (moduleName === 'react') {
         console.log('Loaded React in VM === Pre-loaded React:', loaded === nodeReact);
@@ -623,6 +621,7 @@ module.exports = (function() {
     module: { exports: {} },
     process,
     console,
+    // React: nodeReact, // Make React available globally for JSX
     setOutput,
     util: {
       deprecate: () => {},
