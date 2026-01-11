@@ -269,8 +269,18 @@ export async function renderSEOPageContentToStringInVm(
 
   const safePageName = pageInfo.name.replace(/[^a-zA-Z0-9_$]/g, '_');
 
-  const pageImport = `
+  const isMarkdown = pageInfo.isMarkdown || pageInfo.componentPath?.endsWith('.md');
+
+  const importAndCache = !isMarkdown ? `
     import ${safePageName} from '${pageInfo.componentPath}';
+    cacheSEOComponent(${JSON.stringify(pageInfo)}, ${safePageName});
+  ` : '';
+
+  const debuggingStatements = `
+    console.log('App component imported in VM:', App);
+    console.log('SEOPageProvider imported in VM:', SEOPageProvider);
+    console.log('Page component (${safePageName}) imported in VM:', ${safePageName});
+    console.log('Page component (${safePageName}) === require("${pageInfo.componentPath}").default:', ${safePageName} === require('${pageInfo.componentPath}').default);
   `;
 
   const mainTsx = `
@@ -280,31 +290,17 @@ export async function renderSEOPageContentToStringInVm(
     globalThis.React = React;
 
     import ReactDOMServer from 'react-dom/server';
-    import { SEOPageProvider } from 'deadsimpleseo-react';
+    import { SEOPageProvider, cacheSEOComponent, setCurrentSEOPage } from 'deadsimpleseo-react';
 
     import App from '${appComponentPath}';
 
-    ${pageImport}
+    // Force page component into require cache
+    ${importAndCache}
 
-    console.log('App component imported in VM:', App);
-    console.log('SEOPageProvider imported in VM:', SEOPageProvider);
-    console.log('Page component (${safePageName}) imported in VM:', ${safePageName});
-
-    console.log('Page component (${safePageName}) === require("${pageInfo.componentPath}").default:', ${safePageName} === require('${pageInfo.componentPath}').default);
-
-    const pageContext = {
-      pageTitle: ${JSON.stringify(pageInfo.meta?.title || pageInfo.name || 'Untitled Page')},
-      render: () => <${safePageName} />,
-      meta: ${JSON.stringify({
-        ...pageInfo.meta,
-        componentPath: pageInfo.componentPath,
-      })},
-    };
-
-    console.log('pageContext in VM:', pageContext);
+    setCurrentSEOPage(${JSON.stringify(pageInfo)});
 
     const html = ReactDOMServer.renderToString(
-      <SEOPageProvider pageContext={pageContext}>
+      <SEOPageProvider>
         <App />
       </SEOPageProvider>
     );
@@ -439,7 +435,8 @@ export async function renderSEOPageContentToStringInVm(
           if (isMonorepo) {
             // Development: resolve to source in monorepo
             // From packages/vite-deadsimpleseo/dist -> packages/deadsimpleseo-react/src
-            const dsrPath = path.resolve(__dirname, '../../deadsimpleseo-react/src/index.ts');
+            const dsrPath = path.resolve(__dirname, '../../../deadsimpleseo-react/src/index.ts');
+            console.log('[vite-deadsimpleseo] Resolving deadsimpleseo-react to monorepo source path:', dsrPath);
             if (fs.existsSync(dsrPath)) {
               return { path: dsrPath };
             }
@@ -652,6 +649,10 @@ module.exports = (function() {
       console.log(`Loaded ${moduleName}:`, typeof loaded, Object.keys(loaded || {}).slice(0, 5));
       return loaded;
     }
+
+    // if (path.isAbsolute(moduleName) && fs.existsSync(moduleName)) {
+    //   return nodeRequire(moduleName);
+    // }
     
     console.log('Unhandled require in VM for module:', moduleName);
   };

@@ -1,10 +1,14 @@
-import type { Plugin, ResolvedConfig } from 'vite';
+
+import fs from 'fs';
 import path from 'path';
+
+import type { Plugin, ResolvedConfig } from 'vite';
 import type { DeadSimpleSEOConfig } from './config.js';
 import type { SEOPageInfo } from '../shared/types.js';
 import { scanSEOPages, readFileContent } from './scanner.js';
 import { validateSEOPage } from './validator.js';
 import { generateStaticPageHtml, renderSEOPageContentToStringInVm } from './generator.js';
+import { parseMarkdown } from '../shared/markdown.js';
 
 const PLUGIN_NAME = 'vite-deadsimpleseo';
 
@@ -148,19 +152,51 @@ export const seoPagesList = ${JSON.stringify(pagesList)};
       // Generate static pages and write them to disk
       for (const page of seoPages) {
 
-        const componentPath = path.resolve(viteConfig.root, page.componentPath);
-        console.log(`  - Generating page: ${page.name}
-              original component path: ${page.componentPath}
-              resolved component path: ${componentPath}
-        `);
+        let pageInfo: SEOPageInfo = { ...page };
 
-        const pageInfo = {
-          ...page,
-          componentPath,
-        };
+        if (page.componentPath && !page.isMarkdown) {
 
-        if (pageInfo.isMarkdown || pageInfo.componentPath?.trim() === '' || pageInfo.componentPath.endsWith('.md')) {
-          console.log(`    (Skipping React rendering for markdown page or invalid component path)`);
+          const componentPath = path.resolve(viteConfig.root, page.componentPath);
+          console.log(`  - Generating page: ${page.name}
+                original component path: ${page.componentPath}
+                resolved component path: ${componentPath}
+          `);
+
+          pageInfo.componentPath = componentPath;
+        } else if (page.isMarkdown) {
+          const componentPath = path.resolve(viteConfig.root, page.componentPath);
+          console.log(`  - Generating markdown page: ${page.name}
+                original component path: ${page.componentPath}
+                resolved component path: ${componentPath}
+          `);
+
+          // pageInfo.componentPath = componentPath;
+
+          const markdownContent = await fs.promises.readFile(componentPath, 'utf-8');
+
+          // Parse markdown to get frontmatter and HTML
+
+          const markdownResult = parseMarkdown(markdownContent);
+          const { frontmatter, html } = markdownResult;
+
+          pageInfo.meta = { ...pageInfo.meta, frontmatter };
+
+          // pageInfo.render = () => (
+          //   <div
+          //     className="markdown-content"
+          //     style={{ maxWidth: '800px', margin: '0 auto', padding: '2rem' }}
+          //     dangerouslySetInnerHTML={{ __html: html }}
+          //   />
+          // );
+
+          pageInfo.pageContent = html;
+
+          // pageInfo = {
+
+          // ).html;
+
+        } else {
+          console.warn(`  ! Skipping page ${page.name} - no component path found`);
           continue;
         }
 
@@ -172,7 +208,7 @@ export const seoPagesList = ${JSON.stringify(pagesList)};
         const routePath = path.join(config.outDir, page.route);
         
         // Create directory and write file
-        const fs = await import('fs');
+        // const fs = await import('fs');
         await fs.promises.mkdir(routePath, { recursive: true });
         await fs.promises.writeFile(
           path.join(routePath, 'index.html'),

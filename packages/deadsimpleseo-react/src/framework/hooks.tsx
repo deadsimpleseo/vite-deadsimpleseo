@@ -40,7 +40,46 @@ interface _SEOHooksInternalState {
   seoPagesList: SEOPageListItem[];
   currentSEOPage: SEOPageInfo | null;
   currentSEOPageContext: SEOPageContext | null;
+  componentCache?: Map<string, React.FC>;
 }
+
+/**
+ * Utility to cache component by path
+ */
+export function cacheSEOComponent(pageInfo: SEOPageInfo, component: React.FC) {
+  if (!_seoHooksState.componentCache) {
+    _seoHooksState.componentCache = new Map<string, React.FC>();
+  }
+  _seoHooksState.componentCache.set(pageInfo.componentPath, component);
+}
+
+/**
+ * Utility to set SEO page info in global state
+ * Used during server-side rendering to provide page context
+ */
+export function setCurrentSEOPage(pageInfo: SEOPageInfo) {
+  _seoHooksState.currentSEOPage = pageInfo;
+  // if (component) {
+  //   _seoHooksState.currentSEOPageContext = {
+  //     pageTitle: pageInfo.meta?.title || pageInfo.name,
+  //     render: () => React.createElement(component),
+  //     meta: pageInfo.meta,
+  //   };
+  // }
+
+  // Look for cached component
+  if (_seoHooksState.componentCache?.has(pageInfo.componentPath)) {
+    const cachedComponent = _seoHooksState.componentCache.get(pageInfo.componentPath)!;
+    _seoHooksState.currentSEOPageContext = {
+      pageTitle: pageInfo.meta?.title || pageInfo.name,
+      render: () => React.createElement(cachedComponent),
+      meta: {
+        ...pageInfo.meta,
+        componentPath: pageInfo.componentPath,
+      },
+    };
+  }
+} 
 
 /**
  * Internal state for SEO hooks
@@ -119,6 +158,8 @@ export async function loadSEOPage(pageInfo: SEOPageInfo): Promise<SEOPageContext
     return null;
   }
 
+  console.log('[deadsimpleseo-react] pageInfo:', pageInfo);
+
   if (pageInfo.isMarkdown) {
     return loadMarkdownPage(pageInfo);
   }
@@ -159,47 +200,73 @@ export function SEOPageProvider({
       return pageContext;
     }
 
-    if (!pageInfo) {
+    // if (!pageInfo) {
+    //   if 
+    //   return null;
+    // }
+
+    const _pageInfo = pageInfo || _seoHooksState.currentSEOPage;
+    if (!_pageInfo) {
+      console.warn('SEOPageProvider: No pageInfo available');
       return null;
     }
 
-    if (pageInfo.isMarkdown) {
+    if (_pageInfo.isMarkdown) {
       // Load markdown page
       return {
-        pageTitle: pageInfo.meta?.title || pageInfo.name || 'Untitled Page',
+        pageTitle: _pageInfo.meta?.title || _pageInfo.name || 'Untitled Page',
+        // render: () => {
+        //   return <span>Markdown rendering not implemented in this context.</span>;
+        // },
         render: () => {
-          return <span>Markdown rendering not implemented in this context.</span>;
+          return (
+            <div
+              className="markdown-content"
+              style={{ maxWidth: '800px', margin: '0 auto', padding: '2rem' }}
+              dangerouslySetInnerHTML={{ __html: _pageInfo.pageContent || '' }}
+            />
+          );
         },
-        meta: pageInfo.meta,
+        isMarkdown: true,
+        pageContent: _pageInfo.pageContent || '',
+        meta: _pageInfo.meta,
       };
     }
 
-    if (!pageInfo.componentPath) {
-      throw new Error('SEOPageProvider: pageInfo must have a componentPath for non-markdown pages');
+    // If we already have a cached context, use it
+    if (_seoHooksState.currentSEOPageContext && _seoHooksState.currentSEOPage?.componentPath === _pageInfo.componentPath) {
+      return _seoHooksState.currentSEOPageContext;
     }
+
+    // if (!_pageInfo.componentPath) {
+    //   throw new Error('SEOPageProvider: pageInfo must have a componentPath for non-markdown pages');
+    // }
 
     // Load React component
     pageContext = {
-      pageTitle: pageInfo.meta?.title || pageInfo.name || 'Untitled Page',
+      pageTitle: _pageInfo.meta?.title || _pageInfo.name || 'Untitled Page',
       render: () => {
-        const PageComponent = require(/* @vite-ignore */ pageInfo.componentPath).default;
+        // Get the component from cache (import does not support tsx)
+        const PageComponent = _seoHooksState.componentCache?.get(_pageInfo.componentPath);
         return PageComponent ? <PageComponent /> : null;
       },
       meta: {
-        ...pageInfo.meta,
-        componentPath: pageInfo.componentPath,
+        ..._pageInfo.meta,
+        componentPath: _pageInfo.componentPath,
       },
     };
 
     return pageContext;
   };
 
-  const contextValue =
-    ((pageContext || pageInfo) ? getPageContext() : null) ||
-    _seoHooksState.currentSEOPageContext;
+  // const contextValue =
+  //   ((pageContext || pageInfo) ? getPageContext() : null) ||
+  //   _seoHooksState.currentSEOPageContext;
+
+  const contextValue = getPageContext();
 
   if (!contextValue) {
-    throw new Error('SEOPageProvider requires a valid pageContext or pageInfo, or setCurrentSEOPage must be called before rendering.');
+    throw new Error('SEOPageProvider requires a valid pageContext or pageInfo parameter, or setCurrentSEOPage must be called before rendering.');
   }
 
   return (

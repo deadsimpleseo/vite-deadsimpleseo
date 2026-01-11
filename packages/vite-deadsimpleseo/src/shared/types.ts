@@ -15,12 +15,15 @@ export interface SEOPageInfo {
   route: string;
   meta?: SEOPageMeta;
   isMarkdown?: boolean;
+  pageContent?: string;
 }
 
 export interface SEOPageContext {
   pageTitle?: string;
   render?: () => ReactNode;
   meta?: SEOPageMeta;
+  isMarkdown?: boolean;
+  pageContent?: string;
 }
 
 export interface SEOPageListItem {
