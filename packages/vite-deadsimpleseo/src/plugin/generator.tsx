@@ -3,8 +3,17 @@ import path from 'path';
 import fs from 'fs';
 import vm from 'vm';
 import { createRequire } from 'module';
+import { fileURLToPath } from 'url';
 import type { SEOPageInfo, SEOPageMeta } from '../shared/types.js';
 import { parseMarkdown } from '../shared/markdown.js';
+
+// Detect if we're running in the monorepo (development) or from node_modules (production)
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+// In monorepo: packages/vite-deadsimpleseo/src/plugin/generator.tsx
+// In production: node_modules/vite-deadsimpleseo/dist/plugin/generator.js
+const isMonorepo = __dirname.includes('/packages/vite-deadsimpleseo/');
+
 // import { SEOPageDataContext, SEOPageProvider, useSEOPage, useSEOPageComponent } from '../index.js';
 
 // import * as DeadSimpleSEO from 'vite-deadsimpleseo';
@@ -423,11 +432,43 @@ export async function renderSEOPageContentToStringInVm(
           throw new Error('vite-deadsimpleseo module not supported in VM');
         }
         
-        // Resolve deadsimpleseo-react to its source entry point, not built dist
-        // This way esbuild bundles the source and it gets evaluated in the VM with VM's React
+        // Resolve deadsimpleseo-react to its source entry point
+        // In monorepo: use source files so they get bundled with VM's React
+        // In production: use the published package from node_modules
         if (args.path === 'deadsimpleseo-react') {
-          const dsrPath = path.resolve(process.cwd(), '../../packages/deadsimpleseo-react/src/index.ts');
-          return { path: dsrPath };
+          if (isMonorepo) {
+            // Development: resolve to source in monorepo
+            // From packages/vite-deadsimpleseo/dist -> packages/deadsimpleseo-react/src
+            const dsrPath = path.resolve(__dirname, '../../deadsimpleseo-react/src/index.ts');
+            if (fs.existsSync(dsrPath)) {
+              return { path: dsrPath };
+            }
+            // Fallback if monorepo structure is different
+            console.warn('[vite-deadsimpleseo] Could not find deadsimpleseo-react source, falling back to node_modules');
+          }
+          
+          // Production or fallback: resolve from node_modules
+          // Use the published ESM source (or CJS if ESM not available)
+          try {
+            const require = createRequire(import.meta.url);
+            const pkgPath = require.resolve('deadsimpleseo-react/package.json');
+            const pkgJson = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
+            
+            // Try to use the source entry if available, otherwise use module or main
+            const dsrDir = path.dirname(pkgPath);
+            let entryPath = path.join(dsrDir, 'src/index.ts');
+            
+            if (!fs.existsSync(entryPath)) {
+              // Use the built module entry
+              const moduleEntry = pkgJson.module || pkgJson.main;
+              entryPath = path.join(dsrDir, moduleEntry);
+            }
+            
+            return { path: entryPath };
+          } catch (error) {
+            console.error('[vite-deadsimpleseo] Failed to resolve deadsimpleseo-react:', error);
+            throw new Error('Could not resolve deadsimpleseo-react. Make sure it is installed.');
+          }
         }
         
         // deadsimpleseo-react should be bundled by esbuild, not treated as external
