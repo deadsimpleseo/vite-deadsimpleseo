@@ -19,10 +19,11 @@ const VIRTUAL_MODULE_ID = 'virtual:seo-pages';
 const RESOLVED_VIRTUAL_MODULE_ID = '\0' + VIRTUAL_MODULE_ID;
 
 export function deadSimpleSEO(options: DeadSimpleSEOConfig = {}): Plugin {
-  const config: Required<Omit<DeadSimpleSEOConfig, 'defaults' | 'routeTransform'>> & Pick<DeadSimpleSEOConfig, 'defaults' | 'routeTransform'> = {
+  const config: Required<Omit<DeadSimpleSEOConfig, 'defaults' | 'routeTransform' | 'preserveInLinks'>> & Pick<DeadSimpleSEOConfig, 'defaults' | 'routeTransform' | 'preserveInLinks'> = {
     pagesDir: options.pagesDir || 'src/seo-pages',
     outDir: options.outDir || 'dist',
-    markdown: options.markdown || false,
+    markdown: options.markdown !== undefined ? options.markdown : true,
+    preserveInLinks: options.preserveInLinks,
     defaults: options.defaults,
     routeTransform: options.routeTransform,
   };
@@ -41,7 +42,7 @@ export function deadSimpleSEO(options: DeadSimpleSEOConfig = {}): Plugin {
     async buildStart() {
       // Scan for SEO pages
       console.log(`[${PLUGIN_NAME}] Scanning for SEO pages in ${config.pagesDir}...`);
-      seoPages = await scanSEOPages(config.pagesDir, config.markdown);
+      seoPages = await scanSEOPages(config.pagesDir, config.markdown, config.preserveInLinks);
 
       if (seoPages.length === 0) {
         console.warn(`[${PLUGIN_NAME}] No SEO pages found in ${config.pagesDir}`);
@@ -200,11 +201,10 @@ export const seoPagesList = ${JSON.stringify(pagesList)};
           continue;
         }
 
-        // const staticHtml = await generateStaticPageHtml(viteConfig, page, indexHtmlContent, mainEntryFile);
-        const staticHtml = await renderSEOPageContentToStringInVm(
-          appComponentPath,
-          pageInfo,
-        );
+        // Generate static HTML using Vite-processed template (includes CSS with hashed filenames)
+        // Pass bundle to inline CSS or make paths relative
+        const staticHtml = await generateStaticPageHtml(viteConfig, pageInfo, indexHtmlContent, mainEntryFile, bundle);
+        
         const routePath = path.join(config.outDir, page.route);
         
         // Create directory and write file

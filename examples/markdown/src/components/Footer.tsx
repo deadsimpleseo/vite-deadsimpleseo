@@ -71,7 +71,7 @@ export default function Footer() {
           fontSize: '0.9rem'
         }}>
           <p style={{ margin: 0 }}>
-            © 2026 DeadSimpleSEO. Built with ❤️ using Vite + React.
+            © 2026 Timothy Meade (@NotABusinessGuy). Built with ❤️ using Vite + React + 🚀 DeadSimpleSEO 😊.
           </p>
         </div>
       </div>

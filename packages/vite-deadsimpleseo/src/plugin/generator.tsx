@@ -4,6 +4,7 @@ import fs from 'fs';
 import vm from 'vm';
 import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
+import type { ResolvedConfig } from 'vite';
 import type { SEOPageInfo, SEOPageMeta } from '../shared/types.js';
 import { parseMarkdown } from '../shared/markdown.js';
 
@@ -59,15 +60,50 @@ function removeMainModule(html: string, mainEntryFile: string | null): string {
  * Returns the HTML string instead of writing to disk
  */
 export async function generateStaticPageHtml(
-  viteConfig: any,
+  viteConfig: ResolvedConfig,
   pageInfo: SEOPageInfo,
   indexHtmlTemplate: string,
-  mainEntryFile: string | null = null
+  mainEntryFile: string | null = null,
+  bundle?: Record<string, any>
 ): Promise<string> {
   let html = indexHtmlTemplate;
   
   // Remove main React bundle - static pages don't need React runtime
   html = removeMainModule(html, mainEntryFile);
+  
+  // Inline CSS or make paths relative for static pages
+  if (bundle) {
+    // Find all CSS assets in the bundle
+    const cssAssets: Array<{ fileName: string; source: string | Uint8Array }> = [];
+    for (const [fileName, asset] of Object.entries(bundle)) {
+      if (asset.type === 'asset' && fileName.endsWith('.css')) {
+        cssAssets.push({
+          fileName,
+          source: asset.source
+        });
+      }
+    }
+    
+    // Option 1: Inline CSS directly into the HTML
+    if (cssAssets.length > 0) {
+      const inlinedStyles = cssAssets.map(asset => {
+        const cssContent = typeof asset.source === 'string' 
+          ? asset.source 
+          : new TextDecoder().decode(asset.source);
+        return `<style data-vite-css="${asset.fileName}">\n${cssContent}\n</style>`;
+      }).join('\n');
+      
+      // Remove external CSS link tags and replace with inlined styles
+      html = html.replace(/<link\s+rel="stylesheet"\s+crossorigin\s+href="\/assets\/[^"]+\.css">/g, '');
+      html = html.replace('</head>', `${inlinedStyles}\n</head>`);
+    }
+    
+    // Option 2: Convert absolute paths to relative paths (commented out - using inlining instead)
+    // const depth = pageInfo.route.split('/').filter(Boolean).length;
+    // const relativePrefix = depth > 0 ? '../'.repeat(depth) : './';
+    // html = html.replace(/href="\/assets\//g, `href="${relativePrefix}assets/`);
+    // html = html.replace(/src="\/assets\//g, `src="${relativePrefix}assets/`);
+  }
   
   // // Handle markdown files
   // if (pageInfo.isMarkdown) {
@@ -135,7 +171,7 @@ export async function generateStaticPageHtml(
  * @deprecated Use generateStaticPageHtml instead for bundle integration
  */
 export async function generateStaticPage(
-  viteConfig: any,
+  viteConfig: ResolvedConfig,
   pageInfo: SEOPageInfo,
   outDir: string,
   indexHtmlTemplate: string,

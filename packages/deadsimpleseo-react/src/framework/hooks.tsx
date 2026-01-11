@@ -44,6 +44,14 @@ interface _SEOHooksInternalState {
 }
 
 /**
+ * Utility to determine whether the current page is an SEO page (static)
+ */
+export function isSEOPage(): boolean {
+  // We cannot use hooks here, so we access the internal state directly
+  return _seoHooksState?.currentSEOPage !== null;
+}
+
+/**
  * Utility to cache component by path
  */
 export function cacheSEOComponent(pageInfo: SEOPageInfo, component: React.FC) {

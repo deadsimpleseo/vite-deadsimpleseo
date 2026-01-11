@@ -33,6 +33,11 @@ p {
   margin-bottom: 1rem;
 }
 
+ul {
+  list-style: none;
+  padding-left: 0;
+}
+
 a {
   color: #0066cc;
   text-decoration: none;

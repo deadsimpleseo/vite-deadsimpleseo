@@ -1,83 +1,51 @@
 import './App.css';
+
 import Header from './components/Header';
 import Footer from './components/Footer';
+import TodoList from './components/app/TodoList';
 
-import { useSEOPage, useSEOPageComponent, type SEOPage } from 'deadsimpleseo-react';
+import { isSEOPage, useSEOPage, useSEOPageComponent } from 'deadsimpleseo-react';
 
-function HeaderX() {
-  return (
-    <header style={{
-      background: '#0f3460',
-      color: 'white',
-      padding: '1.5rem 2rem'
-    }}>
-      <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-        <h1>DeadSimpleSEO Example App</h1>
-      </div>
-    </header>
-  );
-}
-
-function FooterX() {
-  return (
-    <footer style={{
-      background: '#1a1a2e',
-      color: '#e0e0e0',
-      padding: '3rem 2rem 1.5rem',
-      marginTop: 'auto'
-    }}>
-      <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-        <p>© 2024 DeadSimpleSEO. All rights reserved.</p>
-      </div>
-    </footer>
-  );
-}
-
-function MainPage() {
+function AppMain() {
   return (
     <div className="App" style={{ maxWidth: '1200px', margin: '0 auto' }}>
       <h1>Vite + React + DeadSimpleSEO</h1>
-      <p>This is the main React application.</p>
-      <p>SEO pages are generated separately:</p>
+      <h2>This is the main React application.</h2>
+
+      <div style={{ margin: '1.5rem 0', border: '1px solid #e0e0e0' }}>
+        <TodoList />
+      </div>
+
+      <h2>SEO pages are generated separately:</h2>
       <ul>
         <li><a href="/about/">About Page</a></li>
         <li><a href="/features/">Features Page</a></li>
-        <li><a href="/blog/">Blog Post (Markdown)</a></li>
+        <li><a href="/usage/">Usage Guide</a></li>
+        <li><a href="/contact/">Contact Page</a></li>
       </ul>
     </div>
   );
 }
 
-// function Page() {
-//   const seoPage = useSEOPage();
-//   const SEOPageComponent = useSEOPageComponent();
+function Page() {
+  const seoPage = useSEOPage();
+  const SEOPageComponent = useSEOPageComponent();
 
-//   if (!seoPage || !SEOPageComponent) {
-//     throw new Error('No SEO page or component found');
-//     // return (
-//     //   <div>no SEO page or component</div>
-//     // );
-//   }
+  if (!seoPage || !SEOPageComponent) {
+    return null;
+  }
 
-//   return (
-//     <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-//       <h1>{seoPage.pageTitle}</h1>
-//       <h3>Component path: {seoPage.meta?.componentPath}</h3>
-
-//       <SEOPageComponent />
-//     </div>
-//   )
-// }
+  return seoPage.render();
+}
 
 function App() {
-  const seoPage = useSEOPage();
-  const SEOPage = useSEOPageComponent();
+  const shouldRenderSEO = isSEOPage();
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#f7f9fc' }}>
       <Header />
       <main style={{ flex: 1, padding: '3rem 2rem' }}>
-        { seoPage ? <SEOPage /> : <MainPage /> }
+        { shouldRenderSEO ? <Page /> : <AppMain /> }
       </main>
       <Footer />
     </div>

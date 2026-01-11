@@ -1,11 +1,11 @@
 {
-  "name": "vite-deadsimpleseo-example",
+  "name": "vite-deadsimpleseo-examples-markdown",
   "private": true,
   "version": "0.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build --mode development",
     "preview": "vite preview"
   },
   "dependencies": {

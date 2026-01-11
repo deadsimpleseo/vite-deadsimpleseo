@@ -6,8 +6,6 @@ import Footer from '../components/Footer';
 export default function About() {
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-      <Header />
-      <main style={{ flex: 1, padding: '3rem 2rem' }}>
         <div style={{ maxWidth: '800px', margin: '0 auto' }}>
           <h1>About DeadSimpleSEO</h1>
           <p>
@@ -29,8 +27,6 @@ export default function About() {
             React application without the overhead.
           </p>
         </div>
-      </main>
-      <Footer />
     </div>
   );
 }

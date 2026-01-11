@@ -11,10 +11,10 @@ export default function Header() {
           🚀 DeadSimpleSEO
         </h1>
         <nav style={{ display: 'flex', gap: '2rem' }}>
-          <a href="/" style={{ color: 'white', textDecoration: 'none', fontWeight: '500' }}>Home</a>
+          <a href="/" style={{ color: 'white', textDecoration: 'none', fontWeight: '500' }}>App</a>
           <a href="/about/" style={{ color: 'white', textDecoration: 'none', fontWeight: '500' }}>About</a>
           <a href="/features/" style={{ color: 'white', textDecoration: 'none', fontWeight: '500' }}>Features</a>
-          <a href="/blog/" style={{ color: 'white', textDecoration: 'none', fontWeight: '500' }}>Blog</a>
+          <a href="/usage/" style={{ color: 'white', textDecoration: 'none', fontWeight: '500' }}>Usage</a>
         </nav>
       </div>
     </header>

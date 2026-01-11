@@ -5,3 +5,4 @@ dist/
 
 # Ignore build output files
 code-*.cjs
+_output
