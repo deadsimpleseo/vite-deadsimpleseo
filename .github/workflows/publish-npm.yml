@@ -1,0 +1,76 @@
+name: Publish to npm
+
+on:
+  workflow_dispatch:
+    inputs:
+      package:
+        description: 'Package to publish'
+        required: true
+        type: choice
+        options:
+          - vite-deadsimpleseo
+          - deadsimpleseo-react
+          - both
+      version:
+        description: 'Version bump type'
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+        default: patch
+
+permissions:
+  contents: write  # Required for creating tags and commits
+  id-token: write  # Required for trusted publishing
+
+jobs:
+  publish-vite-deadsimpleseo:
+    if: github.event.inputs.package == 'vite-deadsimpleseo' || github.event.inputs.package == 'both'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install package dependencies
+        working-directory: packages/vite-deadsimpleseo
+        run: npm ci
+
+      - name: Version bump and tag
+        working-directory: packages/vite-deadsimpleseo
+        run: |
+          npm versio.inputs.package == 'deadsimpleseo-react' || github.event.inputs.package == 'both'
+
+      - name: Build package
+        working-directory: packages/deadsimpleseo-react
+        run: npm run build
+
+      - name: Push version commit and tag
+        run: |
+          git push origin main
+          git push origin "deadsimpleseo-react-v${{ env.NEW_VERSION }}"
+
+      - name: Publish to npm
+        working-directory: packages/deadsimpleseo-react
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
