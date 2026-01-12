@@ -60,6 +60,13 @@ export async function generateStaticPageHtml(
   // Remove main React bundle - static pages don't need React runtime
   html = removeMainModule(html, mainEntryFile);
 
+  const baseUrl = process.env.BASE_URL || viteConfig.base || '/';
+  if (baseUrl && baseUrl !== '/') {
+    // Add base tag for relative paths
+    const baseTag = `<base href="${baseUrl}">`;
+    html = html.replace('</head>', `  ${baseTag}\n</head>`);
+  }
+
   // Inline CSS or make paths relative for static pages
   if (bundle) {
     // Find all CSS assets in the bundle
