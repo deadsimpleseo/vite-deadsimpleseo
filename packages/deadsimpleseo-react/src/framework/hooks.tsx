@@ -1,26 +1,36 @@
 import React, { useContext } from 'react';
-import type { SEOPageContentPair, SEOPageContext, SEOPageInfo, SEOPageListItem } from '../shared/types.js';
+import type { SEOFolderIndex, SEOFolderItem, SEOPageContentPair, SEOPageContext, SEOPageInfo, SEOPageListItem } from '../shared/types.js';
 import { SEOPageDataContext } from './context.js';
 import { _seoHooksState } from './internals.js';
+import { ucfirst } from '../shared/strings.js';
 
 /**
  * Hook to access current SEO page metadata
  * Returns pageTitle and pageContent for the current SEO page
  */
-export function useSEOPage(): SEOPageContext {
+export function useSEOPage(pageInfo?: SEOPageInfo): SEOPageContext {
   const context = useContext(SEOPageDataContext);
 
   if (!context) {
     throw new Error('useSEOPage must be used within an SEO page component');
   }
 
+  if (pageInfo) {
+    return getSinglePageContext(pageInfo);
+  }
+
   return context;
 }
 
-export function useSEOPageComponent(): React.FC | null {
-  const context = useContext(SEOPageDataContext);
+export function useSEOPageComponent(pageInfo?: SEOPageInfo): React.FC | null {
+  // const context = useContext(SEOPageDataContext);
+  const context = useSEOPage(pageInfo);
 
   function Wrapper() {
+    if (pageInfo) {
+      const pageContext = getSinglePageContext(pageInfo);
+      return pageContext?.render ? pageContext.render() : null;
+    }
     return context?.render ? context.render() : null;
   }
 
@@ -31,12 +41,14 @@ const getSinglePageContext = (pageInfo: SEOPageInfo): SEOPageContext => {
   const _pageInfo = pageInfo;
 
   if (_pageInfo.isMarkdown) {
-    console.log('[deadsimpleseo-react] Current cached content paths: ', Array.from(_seoHooksState.contentCache?.keys() || []));
+    // console.log('[deadsimpleseo-react] Current cached content paths: ', Array.from(_seoHooksState.contentCache?.keys() || []));
 
     // const pageContent = (_pageInfo.pageContent?.trim() !== '' ? _pageInfo.pageContent : _seoHooksState.contentCache?.get(_pageInfo.componentPath)) || '';
     // console.log('[deadsimpleseo-react] Loading markdown page content for:', _pageInfo.componentPath, pageContent);
 
-    const pageContent = _seoHooksState.contentCache?.get(_pageInfo.componentPath) || '';
+    const pageContent = _pageInfo.pageContent || _seoHooksState.contentCache?.get(_pageInfo.componentPath) || '';
+    const pageSummary = _pageInfo.pageSummary;
+
     console.log('[deadsimpleseo-react] Loaded markdown content length for page:', _pageInfo.componentPath, pageContent.length);
 
     if (!pageContent) {
@@ -45,7 +57,8 @@ const getSinglePageContext = (pageInfo: SEOPageInfo): SEOPageContext => {
 
     // Load markdown page
     return {
-      pageTitle: _pageInfo.meta?.title || _pageInfo.name || 'Untitled Page',
+      // pageTitle: _pageInfo.meta?.title || _pageInfo.name || 'Untitled Page',
+      pageTitle: _pageInfo.pageTitle || _pageInfo.meta?.title || _pageInfo.name,
       // render: () => {
       //   return <span>Markdown rendering not implemented in this context.</span>;
       // },
@@ -60,6 +73,7 @@ const getSinglePageContext = (pageInfo: SEOPageInfo): SEOPageContext => {
       },
       isMarkdown: true,
       pageContent,
+      pageSummary,
       meta: {
         ..._pageInfo.meta,
         componentPath: _pageInfo.componentPath,
@@ -129,6 +143,38 @@ export function SEOPageProvider({
       return null;
     }
 
+    console.log(`[deadsimpleseo-react] SEOPageProvider page ${_pageInfo.name} indexType: ${_pageInfo.indexType}`);
+
+    if (_pageInfo.indexType === 'index') {
+      // Load index page
+      console.log('[deadsimpleseo-react] Loading SEO index page:', _pageInfo);
+
+      console.log('[deadsimpleseo-react] Component cache keys:', Array.from(_seoHooksState.componentCache?.keys() || []));
+
+      const indexComponent = _seoHooksState.componentCache?.get(_pageInfo.componentPath);
+
+      console.log('[deadsimpleseo-react] Loaded index component:', indexComponent);
+
+      if (indexComponent) {
+        // If the component takes props, pass pageInfo for each page
+        // otherwise, assume they are using a hook to get the data
+        const hasProps = indexComponent.length > 0;
+
+        if (hasProps) {
+          return {
+            pageTitle: _pageInfo.meta?.title || _pageInfo.name,
+            render: () => React.createElement(indexComponent, { pageInfo: _pageInfo } as any),
+            meta: _pageInfo.meta,
+          };
+        }
+
+        return {
+          pageTitle: _pageInfo.meta?.title || _pageInfo.name,
+          render: () => React.createElement(indexComponent),
+          meta: _pageInfo.meta,
+        };
+      }
+    }
 
     if (_pageInfo.childPages?.length) {
       // Load page with children
@@ -172,4 +218,58 @@ export function SEOPageProvider({
       {children}
     </SEOPageDataContext.Provider>
   );
+}
+
+// Folder/blog hooks
+
+export function useSEOFolderIndex(): Partial<SEOFolderIndex> {
+  const parentPage = _seoHooksState.parentPage;
+  if (!parentPage) {
+    return {};
+  }
+
+  const title = ucfirst(parentPage.name);
+  const description = parentPage.meta?.description || '';
+
+  // Build pages list
+  const pages: SEOPageListItem[] = parentPage.childPages?.map((child) => ({
+    name: child.name,
+    url: child.route,
+    meta: child.meta,
+  })) || [];
+
+  return {
+    title,
+    description,
+    pages,
+  };
+}
+
+/**
+ * Returns the current folder item (child page) being rendered, and
+ * advances the internal counter to the next item.
+ */
+export function useCurrentSEOFolderItem(advance = true): Partial<SEOFolderItem> {
+  const parentPage = _seoHooksState.parentPage;
+  if (!parentPage) {
+    return {};
+  }
+
+  const allChildPages = parentPage.childPages || [];
+  const currentChildPageIndex = _seoHooksState.currentChildPageIndex;
+  if (!currentChildPageIndex || currentChildPageIndex + 1 >= allChildPages.length) {
+    return {};
+  }
+
+  const nextPageInfo = allChildPages[currentChildPageIndex + 1];
+
+  if (advance && currentChildPageIndex + 1 < allChildPages.length) {
+    _seoHooksState.currentChildPageIndex = currentChildPageIndex + 1;
+  }
+
+  return {
+    title: nextPageInfo.meta?.title || nextPageInfo.name,
+    description: nextPageInfo.meta?.description,
+    pageInfo: nextPageInfo,
+  };
 }

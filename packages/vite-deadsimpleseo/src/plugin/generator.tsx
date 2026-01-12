@@ -141,7 +141,15 @@ export async function renderSEOPageContentToStringInVm(
     `;
   };
 
-  const neededComponents = pageInfo.childPages?.length ? pageInfo.childPages : [pageInfo];
+  console.log(`[vite-deadsimpleseo] Rendering SEO page in VM (index type: ${pageInfo.indexType})`);
+
+  const neededChildComponents = pageInfo.childPages?.length ? pageInfo.childPages : [pageInfo];
+  const neededIndexComponent = pageInfo.indexType === 'index' ? [pageInfo] : [];
+
+  console.log('[vite-deadsimpleseo] Needed child components:', neededChildComponents);
+  console.log('[vite-deadsimpleseo] Needed index component:', neededIndexComponent);
+
+  const neededComponents = [...neededChildComponents, ...neededIndexComponent];
 
   const importAndCache = !isMarkdown ?
     neededComponents.map(p => importAndCachePage(p)).join('\n') : '';
@@ -177,6 +185,8 @@ export async function renderSEOPageContentToStringInVm(
 
     setOutput(html);
   `;
+
+  console.log('[vite-deadsimpleseo] mainTsx for VM:', mainTsx);
 
   const appComponentDir = path.dirname(appComponentPath);
 

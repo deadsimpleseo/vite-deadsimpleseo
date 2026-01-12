@@ -2,9 +2,15 @@
 import React from 'react';
 
 import { useSEOPage } from '../hooks.js';
+import { SEOPageInfo } from '../../shared/types.js';
 
-export function SEOPage() {
-    const { pageTitle, render, meta } = useSEOPage();
+export function SEOHtmlPage({ pageInfo }: { pageInfo?: SEOPageInfo }) {
+    const currentPageContext = useSEOPage(pageInfo);
+    if (!currentPageContext) {
+        return null;
+    }
+
+    const { pageTitle, meta } = currentPageContext;
 
     return (
         <html>
@@ -14,7 +20,7 @@ export function SEOPage() {
                 {meta?.ogImage && <meta property="og:image" content={meta.ogImage} />}
             </head>
             <body>
-                {render ? render() : <div />}
+                <SEOPageContents pageInfo={currentPageInfo} />
             </body>
         </html>
     );

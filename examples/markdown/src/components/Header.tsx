@@ -15,6 +15,7 @@ export default function Header() {
           <a href="/about/" style={{ color: 'white', textDecoration: 'none', fontWeight: '500' }}>About</a>
           <a href="/features/" style={{ color: 'white', textDecoration: 'none', fontWeight: '500' }}>Features</a>
           <a href="/usage/" style={{ color: 'white', textDecoration: 'none', fontWeight: '500' }}>Usage</a>
+          <a href="/blog/" style={{ color: 'white', textDecoration: 'none', fontWeight: '500' }}>Blog</a>
         </nav>
       </div>
     </header>

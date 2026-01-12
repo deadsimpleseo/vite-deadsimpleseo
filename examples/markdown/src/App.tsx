@@ -21,6 +21,7 @@ function AppMain() {
         <li><a href="/about/">About Page</a></li>
         <li><a href="/features/">Features Page</a></li>
         <li><a href="/usage/">Usage Guide</a></li>
+        <li><a href="/blog/">Blog Page</a></li>
         <li><a href="/contact/">Contact Page</a></li>
       </ul>
     </div>

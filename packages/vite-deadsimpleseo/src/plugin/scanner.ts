@@ -3,6 +3,7 @@ import fs from 'fs';
 import type { SEOPageInfo } from '../shared/types.js';
 import { ucfirst } from '../shared/strings.js';
 import { DEFAULT_PRESERVE_IN_LINKS } from './config.js';
+import { parseMarkdown } from '../shared/markdown.js';
 
 /**
  * Sort filenames with priority:
@@ -15,33 +16,33 @@ function sortFiles(files: fs.Dirent[]): fs.Dirent[] {
     // Check for YYYYMMDD date format (8 digits)
     const aDateMatch = a.name.match(/^(\d{8})/);
     const bDateMatch = b.name.match(/^(\d{8})/);
-    
+
     // Both have dates - sort in reverse chronological order (newest first)
     if (aDateMatch && bDateMatch) {
       const aDate = parseInt(aDateMatch[1], 10);
       const bDate = parseInt(bDateMatch[1], 10);
       return bDate - aDate; // Reverse order
     }
-    
+
     // Only one has a date - date comes first
     if (aDateMatch) return -1;
     if (bDateMatch) return 1;
-    
+
     // Check for other numeric prefixes (non-date)
     const aNumMatch = a.name.match(/^(\d+)/);
     const bNumMatch = b.name.match(/^(\d+)/);
-    
+
     // Both start with numbers - compare numerically
     if (aNumMatch && bNumMatch) {
       const aNum = parseInt(aNumMatch[1], 10);
       const bNum = parseInt(bNumMatch[1], 10);
       return aNum - bNum;
     }
-    
+
     // Only one starts with a number - number comes first
     if (aNumMatch) return -1;
     if (bNumMatch) return 1;
-    
+
     // Neither starts with a number - lexicographic sort
     return a.name.localeCompare(b.name);
   });
@@ -54,7 +55,7 @@ function sortFiles(files: fs.Dirent[]): fs.Dirent[] {
  */
 export function componentNameToRoute(name: string, preserveWords?: string[]): string {
   const wordsToPreserve = preserveWords || DEFAULT_PRESERVE_IN_LINKS;
-  
+
   // Build regex pattern from preserved words (case-insensitive, word boundaries)
   const preservePattern = wordsToPreserve.length > 0
     ? new RegExp(`(${wordsToPreserve.join('|')})`, 'gi')
@@ -63,11 +64,11 @@ export function componentNameToRoute(name: string, preserveWords?: string[]): st
   const preservePrefixPattern = wordsToPreserve.length > 0
     ? new RegExp(`^(${wordsToPreserve.join('|')})`, 'i')
     : null;
-  
+
   // Split by preserved words or CamelCase boundaries
   const parts: string[] = [];
   let remaining = name;
-  
+
   while (remaining.length > 0) {
     // Check if remaining starts with a preserved word
     if (preservePrefixPattern) {
@@ -79,7 +80,7 @@ export function componentNameToRoute(name: string, preserveWords?: string[]): st
         continue;
       }
     }
-    
+
     // Otherwise, extract next CamelCase component
     // Match: lowercase/digit followed by uppercase, OR sequence of uppercase followed by lowercase
     const camelMatch = remaining.match(/^([a-z0-9]+|[A-Z](?:[a-z0-9]+|(?=[A-Z])|$))/);
@@ -92,7 +93,7 @@ export function componentNameToRoute(name: string, preserveWords?: string[]): st
       remaining = remaining.slice(1);
     }
   }
-  
+
   return parts.filter(p => p.length > 0).join('-');
 }
 
@@ -103,10 +104,10 @@ export function componentNameToRoute(name: string, preserveWords?: string[]): st
 //  */
 // export function componentNameToRoute(name: string, preserveWords?: string[]): string {
 //   const wordsToPreserve = preserveWords || DEFAULT_PRESERVE_IN_LINKS;
-  
+
 //   // Store found preserved words and their positions
 //   const foundWords: Array<{ word: string; index: number; length: number }> = [];
-  
+
 //   // Find all preserved words in the name (case-insensitive)
 //   for (const word of wordsToPreserve) {
 //     const regex = new RegExp(word, 'gi');
@@ -119,34 +120,210 @@ export function componentNameToRoute(name: string, preserveWords?: string[]): st
 //       });
 //     }
 //   }
-  
+
 //   // Sort by index in reverse order to replace from end to start
 //   foundWords.sort((a, b) => b.index - a.index);
-  
+
 //   // Replace preserved words with placeholders (from end to start to maintain positions)
 //   let result = name;
 //   const placeholders: Array<{ placeholder: string; word: string }> = [];
-  
+
 //   for (let i = 0; i < foundWords.length; i++) {
 //     const { word, index, length } = foundWords[i];
 //     const placeholder = `__P${i}__`;
 //     placeholders.push({ placeholder, word });
 //     result = result.slice(0, index) + placeholder + result.slice(index + length);
 //   }
-  
+
 //   // Apply normal CamelCase to kebab-case transformation
 //   result = result
 //     .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
 //     .replace(/([A-Z])([A-Z][a-z])/g, '$1-$2')
 //     .toLowerCase();
-  
+
 //   // Restore preserved words (lowercase) by replacing placeholders
 //   for (const { placeholder, word } of placeholders) {
 //     result = result.replace(placeholder.toLowerCase(), word);
 //   }
-  
+
 //   return result;
 // }
+
+
+const INDEX_FILENAME = /^_index\.(jsx|tsx)$/i;
+
+/**
+ * Scan directory for React component files and optionally markdown files
+ * Supports nested directories for organizing content like blogs
+ */
+export async function scanSEOPage(
+  absolutePath: string,
+  enableMarkdown: boolean = true,
+  preserveInLinks?: string[],
+  parentRoute: string = ''
+): Promise<SEOPageInfo | null> {
+
+  const stat = fs.statSync(absolutePath);
+  const isDir = stat.isDirectory();
+
+  const baseName = path.basename(absolutePath);
+
+  // Handle file first
+  if (!isDir) {
+    const ext = path.extname(absolutePath);
+    const supportedExts = ['.tsx', '.jsx', '.ts', '.js'];
+
+    // Add markdown extensions if enabled
+    if (enableMarkdown) {
+      supportedExts.push('.md', '.markdown');
+    }
+
+    if (!supportedExts.includes(ext)) {
+      console.warn(`[vite-deadsimpleseo] Unsupported SEO page file type: ${absolutePath}`);
+      return null;
+    }
+
+    const componentName = path.basename(absolutePath, ext);
+
+    const route = componentNameToRoute(componentName, preserveInLinks);
+    const fullRoute = parentRoute ? `${parentRoute}/${route}` : `/${route}`;
+    const isMarkdown = ext === '.md' || ext === '.markdown';
+
+    // // Strip YYYYMMDD date prefix or numeric prefix
+    // // e.g., "20240115-BlogPost" -> "BlogPost" or "01-GettingStarted" -> "GettingStarted"
+    // const nameWithoutPrefix = componentName.replace(/^(\d{8}|\d+)-/, '');
+    // const route = componentNameToRoute(nameWithoutPrefix, preserveInLinks);
+    // const fullRoute = parentRoute ? `${parentRoute}/${route}` : `/${route}`;
+    // const isMarkdown = ext === '.md' || ext === '.markdown';
+
+    // Strip YYYYMMDD date prefix or numeric prefix
+    // e.g., "20240115-BlogPost" -> "BlogPost" or "01-GettingStarted" -> "GettingStarted"
+    const nameWithoutPrefix = componentName.replace(/^(\d{8}|\d+)-/, '');
+
+    // const pageContent = isMarkdown ? fs.readFileSync(absolutePath, 'utf-8') : null;
+
+    let pageContent: string | null = null;
+    let pageTitle: string | undefined = undefined;
+    let pageSummary: string | null = null;
+
+    const extractTitle = (htmlContent: string): string => {
+      const titleMatch = htmlContent.match(/<h1[^>]*>(.*?)<\/h1>/i);
+      if (titleMatch) {
+        return titleMatch[1];
+      }
+      return ucfirst(nameWithoutPrefix || componentName);
+    };
+
+    const extractSummary = (htmlContent: string, maxChars = 5000): string | null => {
+      // const pMatch = htmlContent.match(/<p[^>]*>(.*?)<\/p>/i);
+      // if (pMatch) {
+      //   return pMatch[1];
+      // }
+      // return null;
+      // const PARA = /<(p|h[^>]*>(.*?)<\/p>/ig;
+
+      // Most top-level content tags
+      // const PARA = /<(p|h[1-6]|li|blockquote|pre|div)[^>]*>([\s\S]*?)<\/\1>/ig;
+
+      // const allParas = PARA.exec(htmlContent);
+
+      // console.log(`[vite-deadsimpleseo] extractSummary: found ${allParas ? allParas.length : 0} paragraphs in content.`);
+
+      // const paras: string[] = [];
+      // for (const match of allParas ? [allParas] : []) {
+      //   // If the total length is within maxChars, add the paragraph
+      //   if ((paras.join(' ').length + match[1].length) <= maxChars) {
+      //     paras.push(match[1]);
+      //   } else {
+      //     break;
+      //   }
+      // }
+
+      // return paras.join('');
+
+      // Simple approach: strip tags and truncate
+      // const textContent = htmlContent.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+      // if (textContent.length <= maxChars) {
+      //   return textContent;
+      // }
+      // return textContent.slice(0, maxChars) + '...';
+
+      return htmlContent.slice(0, maxChars);
+    };
+
+    if (isMarkdown) {
+      const markdown = await fs.promises.readFile(absolutePath, 'utf-8');
+      const parsed = parseMarkdown(markdown);
+      pageContent = parsed.html;
+      if (parsed.frontmatter.title) {
+        pageTitle = parsed.frontmatter.title;
+      } else {
+        pageTitle = extractTitle(pageContent);
+      }
+
+      pageSummary = extractSummary(pageContent, 2000);
+    }
+
+    return {
+      // name: ucfirst(componentName),
+      name: componentName,
+      pageTitle: pageTitle ?? (nameWithoutPrefix ? ucfirst(nameWithoutPrefix) : ucfirst(componentName)),
+      componentPath: absolutePath,
+      route: fullRoute,
+      isMarkdown,
+      pageContent: pageContent || undefined,
+      pageSummary: pageSummary || undefined,
+    };
+  }
+  
+  // // Now handle directory
+  // console.warn(`[vite-deadsimpleseo] scanSEOPage does not yet support directories: ${absolutePath}`);
+  // return null;
+
+  const allFiles = sortFiles(fs.readdirSync(absolutePath, { withFileTypes: true }))
+
+  const pageFiles = allFiles.filter(file => !INDEX_FILENAME.test(file.name));
+
+  const childPagePromises = pageFiles.map(file =>
+    scanSEOPage(
+      path.join(absolutePath, file.name),
+      enableMarkdown,
+      preserveInLinks,
+      parentRoute ? `${parentRoute}/${componentNameToRoute(baseName, preserveInLinks)}` : `/${componentNameToRoute(baseName, preserveInLinks)}`
+    )
+  );
+  const childPages = (await Promise.all(childPagePromises)).filter(p => p !== null) as SEOPageInfo[];
+
+  console.log(`[vite-deadsimpleseo] Scanning directory: ${absolutePath}: ${allFiles.map(f => f.name).join(', ')}`);
+
+  const indexPage = allFiles.find(file => INDEX_FILENAME.test(file.name));
+
+  console.log(`[vite-deadsimpleseo] Found index page: ${indexPage ? indexPage.name : 'none'}`);
+
+  const indexType = !!indexPage ? 'index' : 'folder';
+
+  const componentPath = indexPage ? path.join(absolutePath, indexPage.name) : absolutePath;
+
+  const route = path.join(
+    parentRoute,
+    componentNameToRoute(baseName, preserveInLinks)
+  ).replace(/\\/g, '/');
+
+  const name = `${path.basename(baseName)}${path.extname(componentPath)}`;
+  const pageTitle = ucfirst(baseName);
+
+  const indexPageInfo: SEOPageInfo | null = indexPage ? {
+    // name: ucfirst(path.basename(indexPage.name, path.extname(indexPage.name))),
+    name,
+    pageTitle,
+    componentPath,
+    route,
+    indexType: indexType,
+    childPages: childPages.length > 0 ? childPages : undefined,
+  } : null;
+
+  return indexPageInfo;
+}
 
 /**
  * Scan directory for React component files and optionally markdown files
@@ -159,79 +336,26 @@ export async function scanSEOPages(
   parentRoute: string = ''
 ): Promise<SEOPageInfo[]> {
   const absolutePath = path.resolve(process.cwd(), pagesDir);
-  
-  if (!fs.existsSync(absolutePath)) {
-    console.warn(`[vite-deadsimpleseo] SEO pages directory not found: ${pagesDir}`);
-    return [];
+
+  const stat = fs.statSync(absolutePath);
+  if (!stat.isDirectory()) {
+    throw new Error(`[vite-deadsimpleseo] scanSEOPages: pagesDir is not a directory: ${absolutePath}`);
   }
 
   const pages: SEOPageInfo[] = [];
+
   const files = sortFiles(fs.readdirSync(absolutePath, { withFileTypes: true }));
 
   for (const file of files) {
-    // Handle directories - create parent page with childPages
-    if (file.isDirectory()) {
-      // Skip directories starting with underscore or dot
-      if (file.name.startsWith('_') || file.name.startsWith('.')) {
-        continue;
-      }
-
-      const dirPath = path.join(absolutePath, file.name);
-      const dirRoute = componentNameToRoute(file.name, preserveInLinks);
-      const fullRoute = parentRoute ? `${parentRoute}/${dirRoute}` : `/${dirRoute}`;
-      
-      // Recursively scan the directory for child pages
-      const childPages = await scanSEOPages(
-        dirPath,
-        enableMarkdown,
-        preserveInLinks,
-        fullRoute
-      );
-
-      // Create a parent page entry for the directory
-      pages.push({
-        name: ucfirst(file.name),
-        componentPath: dirPath,
-        route: fullRoute,
-        childPages: childPages.length > 0 ? childPages : undefined,
-      });
-      
-      continue;
+    const page = await scanSEOPage(
+      path.join(absolutePath, file.name),
+      enableMarkdown,
+      preserveInLinks,
+      parentRoute
+    );
+    if (page) {
+      pages.push(page);
     }
-
-    const ext = path.extname(file.name);
-    const supportedExts = ['.tsx', '.jsx', '.ts', '.js'];
-    
-    // Add markdown extensions if enabled
-    if (enableMarkdown) {
-      supportedExts.push('.md', '.markdown');
-    }
-    
-    if (!supportedExts.includes(ext)) {
-      continue;
-    }
-
-    const componentPath = path.join(absolutePath, file.name);
-    const componentName = path.basename(file.name, ext);
-    
-    // Skip index files or files starting with underscore
-    if (componentName === 'index' || componentName.startsWith('_')) {
-      continue;
-    }
-
-    // Strip YYYYMMDD date prefix or numeric prefix
-    // e.g., "20240115-BlogPost" -> "BlogPost" or "01-GettingStarted" -> "GettingStarted"
-    const nameWithoutPrefix = componentName.replace(/^(\d{8}|\d+)-/, '');
-    const route = componentNameToRoute(nameWithoutPrefix, preserveInLinks);
-    const fullRoute = parentRoute ? `${parentRoute}/${route}` : `/${route}`;
-    const isMarkdown = ext === '.md' || ext === '.markdown';
-
-    pages.push({
-      name: ucfirst(componentName),
-      componentPath,
-      route: fullRoute,
-      isMarkdown,
-    });
   }
 
   return pages;
