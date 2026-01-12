@@ -2,9 +2,9 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches:
+    # branches:
       # Only run on main-pagesdeploy branch to avoid conflicts with dev work
-      - main-pagesdeploy
+      # - main-pagesdeploy
   workflow_dispatch:
 
 permissions:
