@@ -53,6 +53,7 @@ jobs:
           npm run build
           mv ./dist/index.html ./dist/404.html
           find ./dist
+          cat ./dist/about/index.html
         env:
           BASE_URL: /vite-deadsimpleseo/  # Ensure relative paths for GitHub Pages
       
