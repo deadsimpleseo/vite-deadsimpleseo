@@ -32,6 +32,16 @@ jobs:
       
       - name: Install dependencies
         run: npm ci
+
+      - name: Install dependencies (vite-deadsimpleseo)
+        run: |
+          cd packages/vite-deadsimpleseo
+          npm ci
+
+      - name: Install dependencies (deadsimpleseo-react)
+        run: |
+          cd packages/deadsimpleseo-react
+          npm ci
       
       - name: Build monorepo packages
         run: npm run build
