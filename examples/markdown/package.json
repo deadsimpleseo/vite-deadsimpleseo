@@ -19,6 +19,7 @@
     "@vitejs/plugin-react": "^4.2.1",
     "typescript": "^5.3.3",
     "vite": "^5.0.10",
-    "vite-deadsimpleseo": "file:../.."
+    "vite-deadsimpleseo": "file:../../packages/vite-deadsimpleseo",
+    "deadsimpleseo-react": "file:../../packages/deadsimpleseo-react"
   }
 }
