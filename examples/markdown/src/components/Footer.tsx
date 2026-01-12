@@ -18,16 +18,16 @@ export default function Footer() {
             <h3 style={{ color: 'white', marginBottom: '1rem' }}>Quick Links</h3>
             <ul style={{ listStyle: 'none', padding: 0 }}>
               <li style={{ marginBottom: '0.5rem' }}>
-                <a href="/vite-deadsimpleseo/about/" style={{ color: '#b0b0b0', textDecoration: 'none' }}>About <em>vite-deadsimpleseo</em></a>
+                <a href="/about/" style={{ color: '#b0b0b0', textDecoration: 'none' }}>About <em>vite-deadsimpleseo</em></a>
               </li>
               <li style={{ marginBottom: '0.5rem' }}>
-                <a href="/vite-deadsimpleseo/features/" style={{ color: '#b0b0b0', textDecoration: 'none' }}>Features</a>
+                <a href="/features/" style={{ color: '#b0b0b0', textDecoration: 'none' }}>Features</a>
               </li>
               <li style={{ marginBottom: '0.5rem' }}>
-                <a href="/vite-deadsimpleseo/usage/" style={{ color: '#b0b0b0', textDecoration: 'none' }}>Usage</a>
+                <a href="/usage/" style={{ color: '#b0b0b0', textDecoration: 'none' }}>Usage</a>
               </li>
               <li style={{ marginBottom: '0.5rem' }}>
-                <a href="/vite-deadsimpleseo/blog/" style={{ color: '#b0b0b0', textDecoration: 'none' }}>Blog</a>
+                <a href="/blog/" style={{ color: '#b0b0b0', textDecoration: 'none' }}>Blog</a>
               </li>
             </ul>
           </div>
@@ -35,13 +35,13 @@ export default function Footer() {
             <h3 style={{ color: 'white', marginBottom: '1rem' }}>Resources</h3>
             <ul style={{ listStyle: 'none', padding: 0 }}>
               <li style={{ marginBottom: '0.5rem' }}>
-                <a href="/vite-deadsimpleseo/about/" style={{ color: '#b0b0b0', textDecoration: 'none' }}>About <em>vite-deadsimpleseo</em></a>
+                <a href="/about/" style={{ color: '#b0b0b0', textDecoration: 'none' }}>About <em>vite-deadsimpleseo</em></a>
               </li>
               <li style={{ marginBottom: '0.5rem' }}>
-                <a href="/vite-deadsimpleseo/docs/" style={{ color: '#b0b0b0', textDecoration: 'none' }}>Documentation</a>
+                <a href="/docs/" style={{ color: '#b0b0b0', textDecoration: 'none' }}>Documentation</a>
               </li>
               <li style={{ marginBottom: '0.5rem' }}>
-                <a href="/vite-deadsimpleseo/contact/" style={{ color: '#b0b0b0', textDecoration: 'none' }}>Contact</a>
+                <a href="/contact/" style={{ color: '#b0b0b0', textDecoration: 'none' }}>Contact</a>
               </li>
             </ul>
           </div>
@@ -49,7 +49,7 @@ export default function Footer() {
             <h3 style={{ color: 'white', marginBottom: '1rem' }}>Connect</h3>
             <ul style={{ listStyle: 'none', padding: 0 }}>
               <li style={{ marginBottom: '0.5rem' }}>
-                <a href="https://github.com/tmzt/vite-deadsimpleseo" style={{ color: '#b0b0b0', textDecoration: 'none' }}>GitHub</a>
+                <a href="https://github.com/deadsimpleseo/vite-deadsimpleseo" style={{ color: '#b0b0b0', textDecoration: 'none' }}>GitHub</a>
               </li>
               <li style={{ marginBottom: '0.5rem' }}>
                 <a href="https://twitter.com/@NotABusinessGuy" style={{ color: '#b0b0b0', textDecoration: 'none' }}>Twitter</a>

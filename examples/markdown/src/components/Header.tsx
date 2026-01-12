@@ -11,11 +11,11 @@ export default function Header() {
           🚀 DeadSimpleSEO
         </h1>
         <nav style={{ display: 'flex', gap: '2rem' }}>
-          <a href="/vite-deadsimpleseo/" style={{ color: 'white', textDecoration: 'none', fontWeight: '500' }}>App</a>
-          <a href="/vite-deadsimpleseo/about/" style={{ color: 'white', textDecoration: 'none', fontWeight: '500' }}>About</a>
-          <a href="/vite-deadsimpleseo/features/" style={{ color: 'white', textDecoration: 'none', fontWeight: '500' }}>Features</a>
-          <a href="/vite-deadsimpleseo/usage/" style={{ color: 'white', textDecoration: 'none', fontWeight: '500' }}>Usage</a>
-          <a href="/vite-deadsimpleseo/blog/" style={{ color: 'white', textDecoration: 'none', fontWeight: '500' }}>Blog</a>
+          <a href="/" style={{ color: 'white', textDecoration: 'none', fontWeight: '500' }}>App</a>
+          <a href="/about/" style={{ color: 'white', textDecoration: 'none', fontWeight: '500' }}>About</a>
+          <a href="/features/" style={{ color: 'white', textDecoration: 'none', fontWeight: '500' }}>Features</a>
+          <a href="/usage/" style={{ color: 'white', textDecoration: 'none', fontWeight: '500' }}>Usage</a>
+          <a href="/blog/" style={{ color: 'white', textDecoration: 'none', fontWeight: '500' }}>Blog</a>
         </nav>
       </div>
     </header>
