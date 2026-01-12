@@ -55,10 +55,17 @@ jobs:
         working-directory: packages/vite-deadsimpleseo
         run: npm ci
 
-      - name: Version bump and tag
+      - name: Version bump and tag (vite-deadsimpleseo)
         working-directory: packages/vite-deadsimpleseo
+        if: github.event.inputs.version != '' && (github.event.inputs.package == 'vite-deadsimpleseo' || github.event.inputs.package == 'both')
         run: |
-          npm versio.inputs.package == 'deadsimpleseo-react' || github.event.inputs.package == 'both'
+          npm version ${{ github.event.inputs.version }} -m "chore(vite-deadsimpleseo): release v%s"
+
+      - name: Version bump and tag (deadsimpleseo-react)
+        working-directory: packages/deads(deadsimpleseo-react
+        if: github.event.inputs.version != '' && (github.event.inputs.package == 'deads(deadsimpleseo-react' || github.event.inputs.package == 'both')
+        run: |
+          npm version ${{ github.event.inputs.version }} -m "chore(deadsimpleseo-react): release v%s"
 
       - name: Build package
         working-directory: packages/deadsimpleseo-react
