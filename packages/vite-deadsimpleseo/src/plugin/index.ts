@@ -7,7 +7,7 @@ import type { DeadSimpleSEOConfig } from './config.js';
 import type { SEOPageInfo } from '../shared/types.js';
 import { scanSEOPages, readFileContent } from './scanner.js';
 import { validateSEOPage } from './validator.js';
-import { generateStaticPageHtml, renderSEOPageContentToStringInVm } from './generator.js';
+import { generateStaticPageHtml } from './generator.js';
 import { parseMarkdown } from '../shared/markdown.js';
 
 const PLUGIN_NAME = 'vite-deadsimpleseo';
@@ -49,10 +49,27 @@ export function deadSimpleSEO(options: DeadSimpleSEOConfig = {}): Plugin {
         return;
       }
 
-      // Validate each page (skip validation for markdown files)
+      // Flatten nested pages for validation
+      const flattenPages = (pages: SEOPageInfo[]): SEOPageInfo[] => {
+        const result: SEOPageInfo[] = [];
+        for (const page of pages) {
+          // Only add pages that have a file (not just directories)
+          if (!page.childPages || page.isMarkdown !== undefined) {
+            result.push(page);
+          }
+          if (page.childPages) {
+            result.push(...flattenPages(page.childPages));
+          }
+        }
+        return result;
+      };
+
+      const allPages = flattenPages(seoPages);
+
+      // Validate each page (skip validation for markdown files and directories)
       const errors: Array<{ page: string; errors: string[] }> = [];
       
-      for (const page of seoPages) {
+      for (const page of allPages) {
         // Skip validation for markdown files
         if (page.isMarkdown) {
           continue;
@@ -81,10 +98,20 @@ export function deadSimpleSEO(options: DeadSimpleSEOConfig = {}): Plugin {
         throw new Error(`[${PLUGIN_NAME}] SEO page validation failed`);
       }
 
-      console.log(`[${PLUGIN_NAME}] Found ${seoPages.length} valid SEO page(s):`);
-      for (const page of seoPages) {
-        console.log(`  - ${page.name} -> ${page.route}/`);
-      }
+      // Log found pages with nesting
+      const logPages = (pages: SEOPageInfo[], indent: string = '') => {
+        for (const page of pages) {
+          if (page.childPages) {
+            console.log(`${indent}- ${page.name}/ (${page.childPages.length} child page${page.childPages.length > 1 ? 's' : ''})`);
+            logPages(page.childPages, indent + '  ');
+          } else {
+            console.log(`${indent}- ${page.name} -> ${page.route}/`);
+          }
+        }
+      };
+
+      console.log(`[${PLUGIN_NAME}] Found ${allPages.length} valid SEO page(s):`);
+      logPages(seoPages);
     },
 
     resolveId(id) {
@@ -150,8 +177,37 @@ export const seoPagesList = ${JSON.stringify(pagesList)};
 
       const appComponentPath = path.resolve(viteConfig.root, 'src', 'App.tsx');
 
+      // Flatten nested pages for generation
+      const flattenPages = (pages: SEOPageInfo[]): SEOPageInfo[] => {
+        const result: SEOPageInfo[] = [];
+        for (const page of pages) {
+          // Only generate pages that have actual content (not just directory containers)
+          // if (!page.childPages || page.isMarkdown !== undefined) {
+          //   result.push(page);
+          // }
+          if (page.childPages) {
+            result.push(...flattenPages(page.childPages));
+          }
+          // Write the directory index page if it has child pages, otherwise write
+          // the actual page
+          result.push(page);
+        }
+        return result;
+      };
+
+      const allPages = flattenPages(seoPages);
+
+      // // Cache content (markdown) pages
+      // for (const page of allPages) {
+      //   if (page.isMarkdown && page.componentPath) {
+      //     const componentPath = path.resolve(viteConfig.root, page.componentPath);
+      //     const markdownContent = await fs.promises.readFile(componentPath, 'utf-8');
+      //     cacheSEOContent(page, markdownContent);
+      //   }
+      // }
+
       // Generate static pages and write them to disk
-      for (const page of seoPages) {
+      for (const page of allPages) {
 
         let pageInfo: SEOPageInfo = { ...page };
 
@@ -203,7 +259,9 @@ export const seoPagesList = ${JSON.stringify(pagesList)};
 
         // Generate static HTML using Vite-processed template (includes CSS with hashed filenames)
         // Pass bundle to inline CSS or make paths relative
-        const staticHtml = await generateStaticPageHtml(viteConfig, pageInfo, indexHtmlContent, mainEntryFile, bundle);
+        const staticHtml = await generateStaticPageHtml(viteConfig, pageInfo, allPages, indexHtmlContent, mainEntryFile, bundle);
+
+        console.log(`    -> Generated static HTML for ${page.route}/`);
         
         const routePath = path.join(config.outDir, page.route);
         
@@ -219,7 +277,7 @@ export const seoPagesList = ${JSON.stringify(pagesList)};
         console.log(`  ✓ Generated ${page.route}/index.html`);
       }
 
-      console.log(`[${PLUGIN_NAME}] Successfully generated ${seoPages.length} static page(s)\n`);
+      console.log(`[${PLUGIN_NAME}] Successfully generated ${allPages.length} static page(s)\n`);
     },
 
     configureServer(server) {

@@ -16,6 +16,7 @@ export interface SEOPageInfo {
   meta?: SEOPageMeta;
   isMarkdown?: boolean;
   pageContent?: string;
+  childPages?: SEOPageInfo[];
 }
 
 export interface SEOPageContext {
@@ -30,4 +31,9 @@ export interface SEOPageListItem {
   name: string;
   url: string;
   meta?: SEOPageMeta;
+}
+
+export interface SEOPageContentPair {
+  pageInfo: SEOPageInfo;
+  content: string;
 }

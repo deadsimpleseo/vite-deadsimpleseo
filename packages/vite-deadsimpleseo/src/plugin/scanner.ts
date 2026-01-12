@@ -1,7 +1,51 @@
 import path from 'path';
 import fs from 'fs';
 import type { SEOPageInfo } from '../shared/types.js';
+import { ucfirst } from '../shared/strings.js';
 import { DEFAULT_PRESERVE_IN_LINKS } from './config.js';
+
+/**
+ * Sort filenames with priority:
+ * 1. YYYYMMDD dates - reverse chronological (newest first)
+ * 2. Numeric prefixes - numeric order
+ * 3. Everything else - lexicographic
+ */
+function sortFiles(files: fs.Dirent[]): fs.Dirent[] {
+  return files.sort((a, b) => {
+    // Check for YYYYMMDD date format (8 digits)
+    const aDateMatch = a.name.match(/^(\d{8})/);
+    const bDateMatch = b.name.match(/^(\d{8})/);
+    
+    // Both have dates - sort in reverse chronological order (newest first)
+    if (aDateMatch && bDateMatch) {
+      const aDate = parseInt(aDateMatch[1], 10);
+      const bDate = parseInt(bDateMatch[1], 10);
+      return bDate - aDate; // Reverse order
+    }
+    
+    // Only one has a date - date comes first
+    if (aDateMatch) return -1;
+    if (bDateMatch) return 1;
+    
+    // Check for other numeric prefixes (non-date)
+    const aNumMatch = a.name.match(/^(\d+)/);
+    const bNumMatch = b.name.match(/^(\d+)/);
+    
+    // Both start with numbers - compare numerically
+    if (aNumMatch && bNumMatch) {
+      const aNum = parseInt(aNumMatch[1], 10);
+      const bNum = parseInt(bNumMatch[1], 10);
+      return aNum - bNum;
+    }
+    
+    // Only one starts with a number - number comes first
+    if (aNumMatch) return -1;
+    if (bNumMatch) return 1;
+    
+    // Neither starts with a number - lexicographic sort
+    return a.name.localeCompare(b.name);
+  });
+}
 
 /**
  * Convert CamelCase component name to snake-case route
@@ -106,11 +150,13 @@ export function componentNameToRoute(name: string, preserveWords?: string[]): st
 
 /**
  * Scan directory for React component files and optionally markdown files
+ * Supports nested directories for organizing content like blogs
  */
 export async function scanSEOPages(
   pagesDir: string,
   enableMarkdown: boolean = true,
-  preserveInLinks?: string[]
+  preserveInLinks?: string[],
+  parentRoute: string = ''
 ): Promise<SEOPageInfo[]> {
   const absolutePath = path.resolve(process.cwd(), pagesDir);
   
@@ -120,10 +166,36 @@ export async function scanSEOPages(
   }
 
   const pages: SEOPageInfo[] = [];
-  const files = fs.readdirSync(absolutePath, { withFileTypes: true });
+  const files = sortFiles(fs.readdirSync(absolutePath, { withFileTypes: true }));
 
   for (const file of files) {
+    // Handle directories - create parent page with childPages
     if (file.isDirectory()) {
+      // Skip directories starting with underscore or dot
+      if (file.name.startsWith('_') || file.name.startsWith('.')) {
+        continue;
+      }
+
+      const dirPath = path.join(absolutePath, file.name);
+      const dirRoute = componentNameToRoute(file.name, preserveInLinks);
+      const fullRoute = parentRoute ? `${parentRoute}/${dirRoute}` : `/${dirRoute}`;
+      
+      // Recursively scan the directory for child pages
+      const childPages = await scanSEOPages(
+        dirPath,
+        enableMarkdown,
+        preserveInLinks,
+        fullRoute
+      );
+
+      // Create a parent page entry for the directory
+      pages.push({
+        name: ucfirst(file.name),
+        componentPath: dirPath,
+        route: fullRoute,
+        childPages: childPages.length > 0 ? childPages : undefined,
+      });
+      
       continue;
     }
 
@@ -147,13 +219,17 @@ export async function scanSEOPages(
       continue;
     }
 
-    const route = componentNameToRoute(componentName, preserveInLinks);
+    // Strip YYYYMMDD date prefix or numeric prefix
+    // e.g., "20240115-BlogPost" -> "BlogPost" or "01-GettingStarted" -> "GettingStarted"
+    const nameWithoutPrefix = componentName.replace(/^(\d{8}|\d+)-/, '');
+    const route = componentNameToRoute(nameWithoutPrefix, preserveInLinks);
+    const fullRoute = parentRoute ? `${parentRoute}/${route}` : `/${route}`;
     const isMarkdown = ext === '.md' || ext === '.markdown';
 
     pages.push({
-      name: componentName,
+      name: ucfirst(componentName),
       componentPath,
-      route: `/${route}`,
+      route: fullRoute,
       isMarkdown,
     });
   }

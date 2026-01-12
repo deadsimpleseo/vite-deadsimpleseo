@@ -1,5 +1,5 @@
 import React, { createContext, useContext } from 'react';
-import type { SEOPageContext, SEOPageInfo, SEOPageListItem } from '../shared/types.js';
+import type { SEOPageContentPair, SEOPageContext, SEOPageInfo, SEOPageListItem } from '../shared/types.js';
 
 /**
  * Context for SEO page data
@@ -41,6 +41,7 @@ interface _SEOHooksInternalState {
   currentSEOPage: SEOPageInfo | null;
   currentSEOPageContext: SEOPageContext | null;
   componentCache?: Map<string, React.FC>;
+  contentCache?: Map<string, string>;
 }
 
 /**
@@ -59,6 +60,31 @@ export function cacheSEOComponent(pageInfo: SEOPageInfo, component: React.FC) {
     _seoHooksState.componentCache = new Map<string, React.FC>();
   }
   _seoHooksState.componentCache.set(pageInfo.componentPath, component);
+}
+
+/**
+ * Utility to cache content by path
+ */
+export function cacheSEOContent(pageInfo: SEOPageInfo, content: string) {
+  if (!_seoHooksState.contentCache) {
+    _seoHooksState.contentCache = new Map<string, string>();
+  }
+  _seoHooksState.contentCache.set(pageInfo.componentPath, content);
+}
+
+/**
+ * Utility to cache multiple pages of SEO content
+ */
+export function cacheMultipleSEOPages(...pairs: SEOPageContentPair[]) {
+  console.log('[deadsimpleseo-react] Caching multiple SEO page contents:', pairs?.length);
+  // console.log('[deadsimpleseo-react] Caching multiple SEO page contents:', pairs);
+
+  if (!_seoHooksState.contentCache) {
+    _seoHooksState.contentCache = new Map<string, string>();
+  }
+  for (const pair of pairs) {
+    _seoHooksState.contentCache.set(pair.pageInfo.componentPath, pair.content);
+  }
 }
 
 /**
@@ -87,7 +113,7 @@ export function setCurrentSEOPage(pageInfo: SEOPageInfo) {
       },
     };
   }
-} 
+}
 
 /**
  * Internal state for SEO hooks
@@ -161,6 +187,32 @@ export async function loadMarkdownPage(pageInfo: SEOPageInfo): Promise<SEOPageCo
   };
 }
 
+export async function loadSEOPageWithChildren(pageInfo: SEOPageInfo): Promise<SEOPageContext | null> {
+  if (!pageInfo || !pageInfo.childPages?.length) {
+    return null;
+  }
+
+  const promises = pageInfo.childPages.map(async (childPage) => {
+    return loadSEOPage(childPage);
+  });
+
+  const childContexts = await Promise.all(promises);
+
+  // Combine child contexts into a single render function
+  return {
+    pageTitle: pageInfo.meta?.title || pageInfo.name,
+    render: () => (
+      <div>
+        <h2><a href={pageInfo.route}>{pageInfo.meta?.title || pageInfo.name}</a></h2>
+        {childContexts.map((context, index) => (
+          context ? <div key={index}>{context.render ? context.render() : null}</div> : null
+        ))}
+      </div>
+    ),
+    meta: pageInfo.meta,
+  };
+}
+
 export async function loadSEOPage(pageInfo: SEOPageInfo): Promise<SEOPageContext | null> {
   if (!pageInfo) {
     return null;
@@ -170,6 +222,10 @@ export async function loadSEOPage(pageInfo: SEOPageInfo): Promise<SEOPageContext
 
   if (pageInfo.isMarkdown) {
     return loadMarkdownPage(pageInfo);
+  }
+
+  if (pageInfo.childPages?.length) {
+    return loadSEOPageWithChildren(pageInfo);
   }
 
   const PageComponent = (await import(/* @vite-ignore */ pageInfo.componentPath)).default;
@@ -203,23 +259,36 @@ export function SEOPageProvider({
 
   // const contextValue = value || (_seoHooksState.currentSEOPage ? await loadSEOPage(_seoHooksState.currentSEOPage) : null);
 
-  const getPageContext = () => {
-    if (pageContext) {
-      return pageContext;
-    }
+  const getSinglePageContext = (pageInfo: SEOPageInfo) => {
+    const _pageInfo = pageInfo;
+    // if (pageContext) {
+    //   return pageContext;
+    // }
 
     // if (!pageInfo) {
     //   if 
     //   return null;
     // }
 
-    const _pageInfo = pageInfo || _seoHooksState.currentSEOPage;
-    if (!_pageInfo) {
-      console.warn('SEOPageProvider: No pageInfo available');
-      return null;
-    }
+    // const _pageInfo = pageInfo || _seoHooksState.currentSEOPage;
+    // if (!_pageInfo) {
+    //   console.warn('SEOPageProvider: No pageInfo available');
+    //   return null;
+    // }
 
     if (_pageInfo.isMarkdown) {
+      console.log('[deadsimpleseo-react] Current cached content paths: ', Array.from(_seoHooksState.contentCache?.keys() || []));
+
+      // const pageContent = (_pageInfo.pageContent?.trim() !== '' ? _pageInfo.pageContent : _seoHooksState.contentCache?.get(_pageInfo.componentPath)) || '';
+      // console.log('[deadsimpleseo-react] Loading markdown page content for:', _pageInfo.componentPath, pageContent);
+
+      const pageContent = _seoHooksState.contentCache?.get(_pageInfo.componentPath) || '';
+      console.log('[deadsimpleseo-react] Loaded markdown content length for page:', _pageInfo.componentPath, pageContent.length);
+
+      if (!pageContent) {
+        console.warn('[deadsimpleseo-react] No markdown content found for page:', _pageInfo.componentPath);
+      }
+
       // Load markdown page
       return {
         pageTitle: _pageInfo.meta?.title || _pageInfo.name || 'Untitled Page',
@@ -231,13 +300,16 @@ export function SEOPageProvider({
             <div
               className="markdown-content"
               style={{ maxWidth: '800px', margin: '0 auto', padding: '2rem' }}
-              dangerouslySetInnerHTML={{ __html: _pageInfo.pageContent || '' }}
+              dangerouslySetInnerHTML={{ __html: pageContent }}
             />
           );
         },
         isMarkdown: true,
-        pageContent: _pageInfo.pageContent || '',
-        meta: _pageInfo.meta,
+        pageContent,
+        meta: {
+          ..._pageInfo.meta,
+          componentPath: _pageInfo.componentPath,
+        },
       };
     }
 
@@ -265,6 +337,61 @@ export function SEOPageProvider({
     };
 
     return pageContext;
+  };
+
+  const getPageContext = () => {
+    if (pageContext) {
+      return pageContext;
+    }
+
+    if (_seoHooksState.currentSEOPageContext) {
+      return _seoHooksState.currentSEOPageContext;
+    }
+
+    const _pageInfo = pageInfo || _seoHooksState.currentSEOPage;
+    if (!_pageInfo) {
+      console.warn('SEOPageProvider: No pageInfo available');
+      return null;
+    }
+
+    if (_pageInfo.childPages?.length) {
+      // Load page with children
+      console.log('[deadsimpleseo-react] Loading SEO page with children:', _pageInfo);
+      return {
+        pageTitle: _pageInfo.meta?.title || _pageInfo.name,
+        render: () => {
+          return (
+            <div>
+              <h2><a href={_pageInfo.route}>{_pageInfo.meta?.title || _pageInfo.name}</a></h2>
+              {_pageInfo.childPages!.map((childPage, index) => {
+
+                // const childContext = getSinglePageContext(childPage);
+                // console.log('[deadsimpleseo-react] Child page context:', childContext);
+                // return childContext ? <div key={index}>{childContext.render ? childContext.render() : null}</div> : null;
+
+                const childContext = getSinglePageContext(childPage);
+                if (childContext?.pageContent) {
+                  return (
+                    <div key={index}>
+                      <h3><a href={childPage.route}>{childContext.pageTitle || childPage.name}</a></h3>
+                      <div
+
+                        className="markdown-content"
+                        style={{ maxWidth: '800px', margin: '0 auto', padding: '2rem' }}
+                        dangerouslySetInnerHTML={{ __html: childContext.pageContent }}
+                      />
+                    </div>
+                  );
+                }
+              })}
+            </div>
+          )
+        },
+        meta: _pageInfo.meta,
+      };
+    }
+
+    return getSinglePageContext(_pageInfo);
   };
 
   // const contextValue =

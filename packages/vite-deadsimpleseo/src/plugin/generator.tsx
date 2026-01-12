@@ -5,7 +5,7 @@ import vm from 'vm';
 import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 import type { ResolvedConfig } from 'vite';
-import type { SEOPageInfo, SEOPageMeta } from '../shared/types.js';
+import type { SEOPageContentPair, SEOPageInfo, SEOPageMeta } from '../shared/types.js';
 import { parseMarkdown } from '../shared/markdown.js';
 
 // Detect if we're running in the monorepo (development) or from node_modules (production)
@@ -62,6 +62,7 @@ function removeMainModule(html: string, mainEntryFile: string | null): string {
 export async function generateStaticPageHtml(
   viteConfig: ResolvedConfig,
   pageInfo: SEOPageInfo,
+  pages: SEOPageInfo[],
   indexHtmlTemplate: string,
   mainEntryFile: string | null = null,
   bundle?: Record<string, any>
@@ -152,7 +153,8 @@ export async function generateStaticPageHtml(
   // Render the React component to static HTML
   const renderedContent = await renderSEOPageContentToStringInVm(
     appComponentPath,
-    pageInfo
+    pageInfo,
+    pages
   );
 
   // Inject rendered content into body
@@ -173,6 +175,7 @@ export async function generateStaticPageHtml(
 export async function generateStaticPage(
   viteConfig: ResolvedConfig,
   pageInfo: SEOPageInfo,
+  pages: SEOPageInfo[],
   outDir: string,
   indexHtmlTemplate: string,
   mainEntryFile: string | null = null
@@ -182,7 +185,7 @@ export async function generateStaticPage(
   fs.mkdirSync(routePath, { recursive: true });
 
   const outputPath = path.join(routePath, 'index.html');
-  const html = await generateStaticPageHtml(viteConfig, pageInfo, indexHtmlTemplate, mainEntryFile);
+  const html = await generateStaticPageHtml(viteConfig, pageInfo, pages, indexHtmlTemplate, mainEntryFile);
 
   fs.writeFileSync(outputPath, html, 'utf-8');
 }
@@ -271,11 +274,13 @@ export function extractSEOMeta(content: string): SEOPageMeta | undefined {
 
 export async function renderSEOPageContentToStringInVm(
   appComponentPath: string,
-  pageInfo: SEOPageInfo
+  pageInfo: SEOPageInfo,
+  pages: SEOPageInfo[] = []
 ) {
 
-  if (!pageInfo || !pageInfo.componentPath) {
-    throw new Error('No pageInfo or componentPath provided for rendering SEO page');
+  if (!pageInfo || (!pageInfo.componentPath && !pageInfo.childPages?.length)) {
+    console.log('PageInfo provided to renderSEOPageContentToStringInVm:', pageInfo);
+    throw new Error('No pageInfo, componentPath or childPages provided for rendering SEO page');
   }
 
   // const appModuleSource = await fs.promises.readFile(appComponentPath, 'utf-8');
@@ -294,7 +299,7 @@ export async function renderSEOPageContentToStringInVm(
 
   let _output: string = '';
   const setOutput = (content: string) => {
-    console.log('Setting output in VM to:', content);
+    // console.log('Setting output in VM to:', content);
     _output = content;
   }
 
@@ -307,10 +312,32 @@ export async function renderSEOPageContentToStringInVm(
 
   const isMarkdown = pageInfo.isMarkdown || pageInfo.componentPath?.endsWith('.md');
 
-  const importAndCache = !isMarkdown ? `
-    import ${safePageName} from '${pageInfo.componentPath}';
-    cacheSEOComponent(${JSON.stringify(pageInfo)}, ${safePageName});
-  ` : '';
+  const importAndCachePage = (pageInfo: SEOPageInfo) => {
+    if (pageInfo.isMarkdown) {
+      return '';
+    }
+
+    const safePageName = pageInfo.name.replace(/[^a-zA-Z0-9_$]/g, '_');
+    return `
+      import ${safePageName} from '${pageInfo.componentPath}';
+      cacheSEOComponent(${JSON.stringify(pageInfo)}, ${safePageName});
+    `;
+  };
+
+  const neededComponents = pageInfo.childPages?.length ? pageInfo.childPages : [pageInfo];
+
+  const importAndCache = !isMarkdown ?
+    neededComponents.map(p => importAndCachePage(p)).join('\n') : '';
+
+  // const neededContentPaths = pageInfo.childPages?.length ? pageInfo.childPages : [pageInfo];
+
+  // const importAndCacheContentPage = async (pageInfo: SEOPageInfo) => {
+  //   const content = await fs.promises.readFile(pageInfo.componentPath!, 'utf-8');
+  //   return `cacheSEOContent(${JSON.stringify(pageInfo)}, ${JSON.stringify(content)});`;
+  // };
+
+  // const importAndCacheContent = isMarkdown ?
+  //   (await Promise.all(neededContentPaths.map(p => importAndCacheContentPage(p)))).join('\n') : '';
 
   const debuggingStatements = `
     console.log('App component imported in VM:', App);
@@ -326,12 +353,17 @@ export async function renderSEOPageContentToStringInVm(
     globalThis.React = React;
 
     import ReactDOMServer from 'react-dom/server';
-    import { SEOPageProvider, cacheSEOComponent, setCurrentSEOPage } from 'deadsimpleseo-react';
+    import { SEOPageProvider, cacheSEOComponent, cacheSEOContent, cacheMultipleSEOPages, setCurrentSEOPage } from 'deadsimpleseo-react';
 
     import App from '${appComponentPath}';
 
     // Force page component into require cache
     ${importAndCache}
+
+    // Cache markdown content if applicable
+    if (seoContentPairs?.length) {
+      cacheMultipleSEOPages(...seoContentPairs);
+    }
 
     setCurrentSEOPage(${JSON.stringify(pageInfo)});
 
@@ -346,7 +378,7 @@ export async function renderSEOPageContentToStringInVm(
     setOutput(html);
   `;
 
-  console.log('main.tsx content:', mainTsx);
+  // console.log('main.tsx content:', mainTsx);
 
   // const appModuleTransformed = await transformWithEsbuild(mainTsx, 'main.tsx', {
   //   // format: 'esm',
@@ -373,9 +405,9 @@ export async function renderSEOPageContentToStringInVm(
     const paths = [fullPath, ...extensions.map(ext => `${fullPath}${ext}`)];
 
     for (const p of paths) {
-      console.log('Resolving module path:', p);
+      // console.log('Resolving module path:', p);
       if (fs.existsSync(p) && fs.statSync(p).isFile()) {
-        console.log('Resolved module path to:', p);
+        // console.log('Resolved module path to:', p);
         return p;
       }
     }
@@ -449,7 +481,7 @@ export async function renderSEOPageContentToStringInVm(
     setup(build: PluginBuild) {
       build.onResolve({ filter: /.*/ }, async (args: OnResolveArgs): Promise<OnResolveResult | undefined> => {
         // console.log(`onResolve called for: path: '${args.path}', namespace: '${args.namespace}', resolveDir: '${args.resolveDir}'`);
-        console.log('onResolve called with args:', args);
+        // console.log('onResolve called with args:', args);
 
         if (args.path === 'main.tsx') {
           return { path: 'main.tsx', namespace: 'vfs' };
@@ -472,7 +504,7 @@ export async function renderSEOPageContentToStringInVm(
             // Development: resolve to source in monorepo
             // From packages/vite-deadsimpleseo/dist -> packages/deadsimpleseo-react/src
             const dsrPath = path.resolve(__dirname, '../../../deadsimpleseo-react/src/index.ts');
-            console.log('[vite-deadsimpleseo] Resolving deadsimpleseo-react to monorepo source path:', dsrPath);
+            // console.log('[vite-deadsimpleseo] Resolving deadsimpleseo-react to monorepo source path:', dsrPath);
             if (fs.existsSync(dsrPath)) {
               return { path: dsrPath };
             }
@@ -557,7 +589,7 @@ export async function renderSEOPageContentToStringInVm(
       });
 
       build.onLoad({ filter: /.*/, namespace: 'external' }, async (args: OnLoadArgs): Promise<OnLoadResult | undefined> => {
-        console.log(`onLoad called for namespace external: '${args.path}', namespace: '${args.namespace}'`);
+        // console.log(`onLoad called for namespace external: '${args.path}', namespace: '${args.namespace}'`);
 
         if (args.path === 'react') {
           return {
@@ -599,7 +631,7 @@ module.exports = (function() {
       });
 
       build.onLoad({ filter: /.*/, namespace: 'vfs' }, async (args: OnLoadArgs): Promise<OnLoadResult | undefined> => {
-        console.log(`onLoad called for namespace vfs: '${args.path}', namespace: '${args.namespace}'`);
+        // console.log(`onLoad called for namespace vfs: '${args.path}', namespace: '${args.namespace}'`);
 
         if (args.path === 'main.tsx') {
           return {
@@ -634,7 +666,7 @@ module.exports = (function() {
 
   // Pre-load React to ensure it's in Node's module cache
   const nodeReact = nodeRequire('react');
-  console.log('Pre-loaded React:', typeof nodeReact, 'createContext' in nodeReact);
+  // console.log('Pre-loaded React:', typeof nodeReact, 'createContext' in nodeReact);
 
   const buildOutput = await build({
     entryPoints: ['main.tsx'],
@@ -666,7 +698,8 @@ module.exports = (function() {
   // console.log('Esbuild generated code:', code);
 
   // Write to code.js
-  await fs.promises.writeFile(`code-${Date.now()}.cjs`, code, 'utf-8');
+  await fs.promises.mkdir('_output', { recursive: true });
+  await fs.promises.writeFile(`_output/code-${Date.now()}.cjs`, code, 'utf-8');
 
   const require = (moduleName: string) => {
     console.log('VM require called for module:', moduleName);
@@ -679,10 +712,10 @@ module.exports = (function() {
     // deadsimpleseo-react is bundled into the code by esbuild
     if (moduleName === 'react' || moduleName === 'react-dom/server') {
       const loaded = nodeRequire(moduleName);
-      if (moduleName === 'react') {
-        console.log('Loaded React in VM === Pre-loaded React:', loaded === nodeReact);
-      }
-      console.log(`Loaded ${moduleName}:`, typeof loaded, Object.keys(loaded || {}).slice(0, 5));
+      // if (moduleName === 'react') {
+      //   console.log('Loaded React in VM === Pre-loaded React:', loaded === nodeReact);
+      // }
+      // console.log(`Loaded ${moduleName}:`, typeof loaded, Object.keys(loaded || {}).slice(0, 5));
       return loaded;
     }
 
@@ -692,6 +725,26 @@ module.exports = (function() {
     
     console.log('Unhandled require in VM for module:', moduleName);
   };
+
+  const contentPairPromises: Promise<SEOPageContentPair>[]  = pages?.map(pageInfo => {
+    return (async () => {
+      let content = '';
+      if (pageInfo.isMarkdown) {
+        content = await fs.promises.readFile(pageInfo.componentPath!, 'utf-8');
+
+        const parsed = parseMarkdown(content);
+
+        // Update pageInfo with frontmatter metadata
+        if (!pageInfo.meta) {
+          pageInfo.meta = parsed.frontmatter;
+        }
+
+        content = parsed.html;
+      }
+      return { pageInfo, content };
+    })();
+  });
+  const seoContentPairs = await Promise.all(contentPairPromises);
 
   const sandbox: any = {
     require,
@@ -704,6 +757,7 @@ module.exports = (function() {
     util: {
       deprecate: () => {},
     },
+    seoContentPairs,
   };
 
   // console.log('DeadsimpleSEOReact in VM:', sandbox.require('deadsimpleseo-react'));
@@ -850,7 +904,7 @@ module.exports = (function() {
   //   </SEOPageProvider>
   // );
 
-  console.log('Output: ', _output);
+  // console.log('Output: ', _output);
 
   return _output;
 };
