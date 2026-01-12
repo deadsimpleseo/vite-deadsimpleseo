@@ -131,16 +131,10 @@ export function _setSEOPagesList(pages: SEOPageListItem[]): void {
   _seoHooksState.seoPagesList = pages;
 }
 
-// /**
-//  * Global variable to hold the current SEO page info
-//  */
-// let currentSEOPage: SEOPageInfo | null = null;
-
-// /**
-//  * 
-//  * @param page 
-//  */
-
+/**
+ * Set the current SEO page and load its context
+ * @param page
+ */
 export async function _setCurrentSEOPage(page: SEOPageInfo) {
   _seoHooksState.currentSEOPage = page;
   _seoHooksState.currentSEOPageContext = await loadSEOPage(page);
@@ -158,14 +152,6 @@ export async function loadMarkdownPage(pageInfo: SEOPageInfo): Promise<SEOPageCo
   if (!pageInfo || !pageInfo.isMarkdown) {
     return null;
   }
-
-  // const fs = require('fs');
-  // const { parseMarkdown } = require('../shared/markdown.js');
-
-  // const markdownContent = fs.readFileSync(pageInfo.componentPath, 'utf-8');
-  // const parsed = parseMarkdown(markdownContent);
-
-  // Fix usage of fs in browser environment
 
   const parsed = {
     frontmatter: {
@@ -251,30 +237,9 @@ export function SEOPageProvider({
   pageContext?: SEOPageContext;
   pageInfo?: SEOPageInfo;
 }) {
-  // const pageInfo = value || (currentSEOPage ? {
-  //   pageTitle: currentSEOPage.meta?.title || currentSEOPage.name || 'Untitled Page',
-  //   pageContent: currentSEOPage.meta?.description || '',
-  //   meta: currentSEOPage.meta,
-  // } : null);
-
-  // const contextValue = value || (_seoHooksState.currentSEOPage ? await loadSEOPage(_seoHooksState.currentSEOPage) : null);
 
   const getSinglePageContext = (pageInfo: SEOPageInfo) => {
     const _pageInfo = pageInfo;
-    // if (pageContext) {
-    //   return pageContext;
-    // }
-
-    // if (!pageInfo) {
-    //   if 
-    //   return null;
-    // }
-
-    // const _pageInfo = pageInfo || _seoHooksState.currentSEOPage;
-    // if (!_pageInfo) {
-    //   console.warn('SEOPageProvider: No pageInfo available');
-    //   return null;
-    // }
 
     if (_pageInfo.isMarkdown) {
       console.log('[deadsimpleseo-react] Current cached content paths: ', Array.from(_seoHooksState.contentCache?.keys() || []));
@@ -318,10 +283,6 @@ export function SEOPageProvider({
       return _seoHooksState.currentSEOPageContext;
     }
 
-    // if (!_pageInfo.componentPath) {
-    //   throw new Error('SEOPageProvider: pageInfo must have a componentPath for non-markdown pages');
-    // }
-
     // Load React component
     pageContext = {
       pageTitle: _pageInfo.meta?.title || _pageInfo.name || 'Untitled Page',
@@ -354,6 +315,16 @@ export function SEOPageProvider({
       return null;
     }
 
+    const renderMarkdown = (markdown: string): React.ReactNode => {
+      return (
+        <div
+          className="markdown-content"
+          style={{ maxWidth: '800px', margin: '0 auto', padding: '2rem' }}
+          dangerouslySetInnerHTML={{ __html: markdown }}
+        />
+      );
+    };
+
     if (_pageInfo.childPages?.length) {
       // Load page with children
       console.log('[deadsimpleseo-react] Loading SEO page with children:', _pageInfo);
@@ -365,21 +336,12 @@ export function SEOPageProvider({
               <h2><a href={_pageInfo.route}>{_pageInfo.meta?.title || _pageInfo.name}</a></h2>
               {_pageInfo.childPages!.map((childPage, index) => {
 
-                // const childContext = getSinglePageContext(childPage);
-                // console.log('[deadsimpleseo-react] Child page context:', childContext);
-                // return childContext ? <div key={index}>{childContext.render ? childContext.render() : null}</div> : null;
-
                 const childContext = getSinglePageContext(childPage);
                 if (childContext?.pageContent) {
                   return (
                     <div key={index}>
                       <h3><a href={childPage.route}>{childContext.pageTitle || childPage.name}</a></h3>
-                      <div
-
-                        className="markdown-content"
-                        style={{ maxWidth: '800px', margin: '0 auto', padding: '2rem' }}
-                        dangerouslySetInnerHTML={{ __html: childContext.pageContent }}
-                      />
+                      {renderMarkdown(childContext.pageContent)}
                     </div>
                   );
                 }
@@ -393,10 +355,6 @@ export function SEOPageProvider({
 
     return getSinglePageContext(_pageInfo);
   };
-
-  // const contextValue =
-  //   ((pageContext || pageInfo) ? getPageContext() : null) ||
-  //   _seoHooksState.currentSEOPageContext;
 
   const contextValue = getPageContext();
 

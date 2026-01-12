@@ -98,20 +98,8 @@ export function deadSimpleSEO(options: DeadSimpleSEOConfig = {}): Plugin {
         throw new Error(`[${PLUGIN_NAME}] SEO page validation failed`);
       }
 
-      // Log found pages with nesting
-      const logPages = (pages: SEOPageInfo[], indent: string = '') => {
-        for (const page of pages) {
-          if (page.childPages) {
-            console.log(`${indent}- ${page.name}/ (${page.childPages.length} child page${page.childPages.length > 1 ? 's' : ''})`);
-            logPages(page.childPages, indent + '  ');
-          } else {
-            console.log(`${indent}- ${page.name} -> ${page.route}/`);
-          }
-        }
-      };
-
-      console.log(`[${PLUGIN_NAME}] Found ${allPages.length} valid SEO page(s):`);
-      logPages(seoPages);
+      // Log summary of found pages
+      console.log(`[${PLUGIN_NAME}] Found ${allPages.length} valid SEO page(s)`);
     },
 
     resolveId(id) {
@@ -212,20 +200,13 @@ export const seoPagesList = ${JSON.stringify(pagesList)};
         let pageInfo: SEOPageInfo = { ...page };
 
         if (page.componentPath && !page.isMarkdown) {
-
           const componentPath = path.resolve(viteConfig.root, page.componentPath);
-          console.log(`  - Generating page: ${page.name}
-                original component path: ${page.componentPath}
-                resolved component path: ${componentPath}
-          `);
+          console.log(`  - Generating page: ${page.name}`);
 
           pageInfo.componentPath = componentPath;
         } else if (page.isMarkdown) {
           const componentPath = path.resolve(viteConfig.root, page.componentPath);
-          console.log(`  - Generating markdown page: ${page.name}
-                original component path: ${page.componentPath}
-                resolved component path: ${componentPath}
-          `);
+          console.log(`  - Generating markdown page: ${page.name}`);
 
           // pageInfo.componentPath = componentPath;
 
@@ -261,7 +242,6 @@ export const seoPagesList = ${JSON.stringify(pagesList)};
         // Pass bundle to inline CSS or make paths relative
         const staticHtml = await generateStaticPageHtml(viteConfig, pageInfo, allPages, indexHtmlContent, mainEntryFile, bundle);
 
-        console.log(`    -> Generated static HTML for ${page.route}/`);
         
         const routePath = path.join(config.outDir, page.route);
         
@@ -295,8 +275,6 @@ export const seoPagesList = ${JSON.stringify(pagesList)};
 
           if (matchedPage) {
             // In dev mode, let Vite handle the SPA routing
-            // The actual component will be loaded by React
-            console.log(`[${PLUGIN_NAME}] Serving SEO page: ${matchedPage.route}`);
           }
 
           next();
