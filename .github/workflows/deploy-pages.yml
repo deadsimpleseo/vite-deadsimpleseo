@@ -51,7 +51,8 @@ jobs:
           cd examples/markdown
           npm ci
           npm run build
-          mv ./dist/index.html ./dist/404.html
+          # mv ./dist/index.html ./dist/404.html
+          rm ./dist/index.html
           find ./dist
           cat ./dist/about/index.html
         env:
