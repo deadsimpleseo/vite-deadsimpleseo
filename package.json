@@ -1,5 +1,5 @@
 {
-  "name": "vite-deadsimpleseo",
+  "name": "@deadsimpleseo/vite-deadsimpleseo",
   "version": "0.1.0",
   "description": "A Vite plugin to generate static SEO pages from React components",
   "type": "module",

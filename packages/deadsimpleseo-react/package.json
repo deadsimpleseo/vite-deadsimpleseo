@@ -1,5 +1,5 @@
 {
-  "name": "deadsimpleseo-react",
+  "name": "@deadsimpleseo/deadsimpleseo-react",
   "version": "0.1.0",
   "description": "React utilities to generate static SEO pages from components",
   "main": "./dist/cjs/index.js",
