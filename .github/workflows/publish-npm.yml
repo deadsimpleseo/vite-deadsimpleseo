@@ -78,7 +78,8 @@ jobs:
       - name: Push version commit and tag
         run: |
           git push origin main
-          git push origin "deadsimpleseo-react-v${{ env.NEW_VERSION }}"
+          # git push origin "deadsimpleseo-react-v${{ env.NEW_VERSION }}"
+          git push origin --tags
 
       - name: Publish to npm
         working-directory: packages/deadsimpleseo-react
