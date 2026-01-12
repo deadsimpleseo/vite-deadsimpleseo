@@ -52,13 +52,16 @@ export default function Footer() {
             <h3 style={{ color: 'white', marginBottom: '1rem' }}>Connect</h3>
             <ul style={{ listStyle: 'none', padding: 0 }}>
               <li style={{ marginBottom: '0.5rem' }}>
-                <a href="https://github.com" style={{ color: '#b0b0b0', textDecoration: 'none' }}>GitHub</a>
+                <a href="https://github.com/tmzt/vite-deadsimpleseo" style={{ color: '#b0b0b0', textDecoration: 'none' }}>GitHub</a>
               </li>
               <li style={{ marginBottom: '0.5rem' }}>
-                <a href="https://twitter.com" style={{ color: '#b0b0b0', textDecoration: 'none' }}>Twitter</a>
+                <a href="https://twitter.com/@NotABusinessGuy" style={{ color: '#b0b0b0', textDecoration: 'none' }}>Twitter</a>
               </li>
               <li style={{ marginBottom: '0.5rem' }}>
-                <a href="https://linkedin.com" style={{ color: '#b0b0b0', textDecoration: 'none' }}>LinkedIn</a>
+                <a href="https://linkedin.com/in/timothymeade" style={{ color: '#b0b0b0', textDecoration: 'none' }}>LinkedIn</a>
+              </li>
+              <li style={{ marginBottom: '0.5rem' }}>
+                <a href="https://youtube.com/@NotABusinessGuy" style={{ color: '#b0b0b0', textDecoration: 'none' }}>YouTube</a>
               </li>
             </ul>
           </div>
