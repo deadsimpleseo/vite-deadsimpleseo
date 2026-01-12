@@ -51,6 +51,7 @@ jobs:
           cd examples/markdown
           npm ci
           npm run build
+          find ./dist
         env:
           BASE_URL: /vite-deadsimpleseo/  # Ensure relative paths for GitHub Pages
       
