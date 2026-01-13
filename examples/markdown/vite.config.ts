@@ -11,4 +11,13 @@ export default defineConfig({
       markdown: true,
     }),
   ],
+  build: {
+    rollupOptions: {
+      input: {
+        main: 'index.html',
+        posthog: 'src/assets/js/posthog-simple.mjs',
+        banner: 'src/assets/js/banner-simple.mjs'
+      }
+    }
+  }
 });

@@ -32,11 +32,11 @@ function Page() {
   const seoPage = useSEOPage();
   const SEOPageComponent = useSEOPageComponent();
 
-  if (!seoPage || !SEOPageComponent) {
-    return null;
+  if (SEOPageComponent) {
+    return <SEOPageComponent />;
+  } else if (seoPage) {
+    return seoPage.render?.();
   }
-
-  return seoPage.render();
 }
 
 function App() {
