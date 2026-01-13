@@ -14,7 +14,7 @@ export default function Usage() {
           </p>
 
           <h2>Installation</h2>
-          <pre><code>npm install vite-deadsimpleseo deadsimpleseo-react</code></pre>
+          <pre><code>npm install @deadsimpleseo/vite-deadsimpleseo @deadsimpleseo/deadsimpleseo-react deadsimpleseo-react</code></pre>
 
           <h2>Configure Vite</h2>
           <p>Add the plugin to your <code>vite.config.ts</code>:</p>

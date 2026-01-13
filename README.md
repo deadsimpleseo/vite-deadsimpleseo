@@ -15,11 +15,11 @@ A Vite plugin to generate static SEO pages from React components using ReactDOMS
 ## Installation
 
 ```bash
-npm install vite-deadsimpleseo
+npm install @deadsimpleseo/vite-deadsimpleseo @deadsimpleseo/deadsimpleseo-react
 # or
-yarn add vite-deadsimpleseo
+yarn add @deadsimpleseo/vite-deadsimpleseo @deadsimpleseo/deadsimpleseo-react
 # or
-pnpm add vite-deadsimpleseo
+pnpm add @deadsimpleseo/vite-deadsimpleseo @deadsimpleseo/deadsimpleseo-react
 ```
 
 ## Usage

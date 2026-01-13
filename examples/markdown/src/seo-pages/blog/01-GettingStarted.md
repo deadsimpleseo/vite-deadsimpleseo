@@ -13,7 +13,7 @@ Welcome to DeadSimpleSEO! This guide will help you get up and running quickly.
 First, install the package:
 
 ```bash
-npm install vite-deadsimpleseo deadsimpleseo-react
+npm install @deadsimpleseo/vite-deadsimpleseo @deadsimpleseo/deadsimpleseo-react deadsimpleseo-react
 ```
 
 ## Configuration
